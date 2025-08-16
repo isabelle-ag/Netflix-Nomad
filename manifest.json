@@ -1,0 +1,20 @@
+{
+	"manifest_version": 2,
+	"name": "Netflix Bypass",
+	"version": "1.0",
+  
+	"description": "Bypasses household lock for netflix",
+  
+	"icons": {
+	  "48": "icons/unlock-48.png",
+	  "96": "icons/unlock-96.png"
+	},
+  
+	"content_scripts": [
+	  {
+		"matches": ["*://*.netflix.com/*"],
+		"js": ["content.js"]
+	  }
+	]
+  }
+  
