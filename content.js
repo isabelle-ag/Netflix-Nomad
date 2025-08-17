@@ -8,6 +8,7 @@ let retryLock = 0;
 let retryPlay = 0;
 let elemCount = 0;
 let autoplayDone = false;
+const cleanupCallbacks = [];
 //let readyCount = 0;
 
 function getDomain() {
@@ -48,7 +49,7 @@ function removeLock() {
 			console.log(MESSAGES.ELEMENT_REMOVED);
 			elemCount++;
 			removedAny = true;
-			if(domain != "WATCH" && !isLocked()){
+			if(!isLocked()){
 				break;
 			}
 		}
@@ -58,7 +59,7 @@ function removeLock() {
 
 
 function tryUnlock() {
-	const removed = removeLock();
+	if(isLocked()) {const removed = removeLock();}
 
 	if (isLocked()) {
 		if (!removed) {
@@ -73,20 +74,19 @@ function tryUnlock() {
 		}
 		else if (retryLock < CONFIG.MAX_RETRIES) {
 			console.error(MESSAGES.RETRY(retryLock, CONFIG.MAX_ELEMENTS, CONFIG.RETRY_DELAY));
-			setTimeout(tryUnlock(), CONFIG.RETRY_DELAY);
+			setTimeout(tryUnlock, CONFIG.RETRY_DELAY);
 		} 
 		else {
 			console.error(MESSAGES.RETRY_MAX);
 			location.reload(); // refresh only after max retries
 		}
 	}
-	return isLocked();
 }//tryUnlock()
 
 
 
 function tryAutoplay(){
-	if (autoplayDone) return;
+	if (autoplayDone || isLocked() ) return;
 	else if (retryPlay >= CONFIG.MAX_RETRIES){
 		console.error(MESSAGES.RETRY_MAX);
 		location.reload();
@@ -136,87 +136,105 @@ function scheduleRetry() {
 	}
 }//scheduleRetry()
 
+// Process video elements with readyState check
+function processVideo(video) {
+	if (autoplayDone) return;
+	
+	if (video.readyState >= 3) {  
+		tryUnlock();
+		tryAutoplay();
+	} else {
+		video.addEventListener('canplay', () => {
+			tryUnlock();
+			tryAutoplay();
+		}, { once: true });
+	}
+}
+
 function init() {
 	console.log(MESSAGES.INIT_START);
 	let page = getDomain();
-	if (isLocked()) tryUnlock();
-	setTimeout(tryAutoplay, CONFIG.INITIAL_DELAY);
+	tryUnlock();
 
-	window.addEventListener('keydown', function(event) {
-        if (event.code === CONFIG.CONTROL_KEY) {
-            event.preventDefault();
-            const video = document.querySelector('video');
-            if (video) {
-                if (video.paused) {
-                    video.play();
-                    console.log(MESSAGES.KEY_PLAY);
-                } else {
-                    video.pause();
-                    console.log(MESSAGES.KEY_PAUSE);
-                }
-            }
-        }
-    }, true); // <-- `true` enables "capture" phase
+	if(page == "WATCH"){
+		setTimeout(tryAutoplay, CONFIG.INITIAL_DELAY);
 
-	// Setup observer for video element
+		window.addEventListener('keydown', function(event) {
+			if (event.code === CONFIG.CONTROL_KEY) {
+				event.preventDefault();
+				const video = document.querySelector('video');
+				if (video) {
+					if (video.paused) {
+						video.play();
+						console.log(MESSAGES.KEY_PLAY(CONFIG.CONTROL_KEY));
+					} else {
+						video.pause();
+						console.log(MESSAGES.KEY_PAUSE(CONFIG.CONTROL_KEY));
+					}
+				}
+			}
+		}, true); // <-- `true` enables "capture" phase
+
+		document.querySelectorAll('video').forEach(processVideo);
+
+		const observer = new MutationObserver((mutations) => {
+			for (const mutation of mutations) {
+				for (const node of mutation.addedNodes) {
+					// Only process video elements
+					if (node.nodeName === 'VIDEO') {
+						processVideo(node);
+					}
+					// Check for video elements within added nodes
+					else if (node.querySelectorAll) {
+						node.querySelectorAll('video').forEach(processVideo);
+					}
+				}
+			}
+		});
+
 	// const observer = new MutationObserver((mutations, obs) => {
-	// 	const video = document.querySelector('video');
-	// 	if (video && video.readyState >= 3) {
-	// 		// Video is loaded, try removing elements
-	// 		tryUnlock();
-	// 		if(video.paused){
-	// 			tryAutoplay();
-	// 		}
-	// 		// Disconnect after first successful check
-	// 		//obs.disconnect();
-	// 	}
-	// });
-	// const observer = new MutationObserver((mutations) => {
 	// 	for (const mutation of mutations) {
 	// 		mutation.addedNodes.forEach(node => {
 	// 			if (node.tagName === 'VIDEO') {
-	// 				tryUnlock();
-	// 				tryAutoplay();
+	// 				const video = node;
+	// 				if (video.readyState >= 3) {
+	// 					tryUnlock();
+	// 					tryAutoplay();
+	// 					obs.disconnect(); // stop observing once ready
+	// 				} else {
+	// 					// wait until the video can play
+	// 					video.addEventListener('canplay', () => {
+	// 						tryUnlock();
+	// 						tryAutoplay();
+	// 						obs.disconnect();
+	// 					}, { once: true });
+	// 				}
 	// 			}
 	// 		});
 	// 	}
 	// });
 
-	const observer = new MutationObserver((mutations, obs) => {
-		for (const mutation of mutations) {
-			mutation.addedNodes.forEach(node => {
-				if (node.tagName === 'VIDEO') {
-					const video = node;
-					if (video.readyState >= 3) {
-						tryUnlock();
-						tryAutoplay();
-						obs.disconnect(); // stop observing once ready
-					} else {
-						// wait until the video can play
-						video.addEventListener('canplay', () => {
-							tryUnlock();
-							tryAutoplay();
-							obs.disconnect();
-						}, { once: true });
-					}
-				}
-			});
-		}
-	});
 	
-	
-	//TODO: possibly use observer to search for lock
-	observer.observe(document.body, {
-		childList: true,
-		subtree: true
-	});
+		observer.observe(document.body, {
+			childList: true,
+			subtree: true
+		});
+	}
+	cleanupCallbacks.push(() => {
+		observer.disconnect();
+		window.removeEventListener('keydown', handleKeyEvent);
+	  });
 
 }//init()
 	
+window.addEventListener('beforeunload', () => {
+	cleanupCallbacks.forEach(fn => fn());
+  });
+
 if(document.getElementsByClassName(SELECTORS.PROFILE_CHOICE).length > 0){ 
 	console.log(MESSAGES.PROFILE_CHOICE_SCREEN); //skip init
 }
-else if (document.readyState === 'complete' && isLocked()) {
+else if (document.readyState === 'complete') {
 	init();
 } 
 else {
