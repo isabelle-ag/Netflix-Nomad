@@ -4,42 +4,33 @@ import { MESSAGES } from "./constants/messages.js";
 import { SELECTORS } from "./constants/selectors.js";
 import { ERR } from "./constants/messages.js";
 
+if (window.__netflixUnblockExecuted) throw new Error("Script already loaded");
+window.__netflixUnblockExecuted = true;
+
 let retryLock = 0;
 let retryPlay = 0;
 let elemCount = 0;
 let autoplayDone = false;
+let domain;
 const cleanupCallbacks = [];
-//let readyCount = 0;
+let unlockTimeout, autoplayTimeout;
 
 function getDomain() {
 	const url = window.location.href;
-	
 	if (url.includes(PAGE_IDENTIFIERS.WATCH)) return "WATCH";
 	if (url.includes(PAGE_IDENTIFIERS.BROWSE)) return "BROWSE";
 	if (url.includes(PAGE_IDENTIFIERS.TITLE)) return "TITLE";
 	if (document.title.includes(PAGE_IDENTIFIERS.HOME)) return "HOME";
-
 	return "UNKNOWN";
 }
 
 function isLocked() {
 	return document.body.innerText.includes((PAGE_IDENTIFIERS.LOCK_MSG));
 }
-
-// function pageWatch() {
-// }
-
-// function pageBrowse() {
-// }
-
-// function pageTitle() {
-// }
-
 function removeLock() {
 	const elements = document.querySelectorAll(SELECTORS.BLOCKING_ELEMENTS);
 	const fullscreenElement = document.fullscreenElement;
 	let removedAny = false;
-	const domain = getDomain();
 	
 	for (let i = 0; i < elements.length; i++) {
 		const style = getComputedStyle(elements[i]);
@@ -49,9 +40,7 @@ function removeLock() {
 			console.log(MESSAGES.ELEMENT_REMOVED);
 			elemCount++;
 			removedAny = true;
-			if(!isLocked()){
-				break;
-			}
+			if(!isLocked()) break;
 		}
 	}
 	return removedAny;
@@ -59,22 +48,29 @@ function removeLock() {
 
 
 function tryUnlock() {
-	if(isLocked()) {const removed = removeLock();}
+	if (!isLocked()) {
+		retryLock = 0;
+		elemCount = 0;
+		return;
+	}
+
+	let removed = removeLock();
 
 	if (isLocked()) {
 		if (!removed) {
 			console.error(MESSAGES.ELEMENT_NOT_FOUND);
+			return;
 		}
 
 		retryLock++;
-
 		if (elemCount > CONFIG.MAX_ELEMENTS){
 			console.error(MESSAGES.UNLOCK_FAILED(elemCount));
 			location.reload();
 		}
 		else if (retryLock < CONFIG.MAX_RETRIES) {
 			console.error(MESSAGES.RETRY(retryLock, CONFIG.MAX_ELEMENTS, CONFIG.RETRY_DELAY));
-			setTimeout(tryUnlock, CONFIG.RETRY_DELAY);
+			clearTimeout(unlockTimeout);
+			unlockTimeout = setTimeout(tryUnlock, CONFIG.RETRY_DELAY);
 		} 
 		else {
 			console.error(MESSAGES.RETRY_MAX);
@@ -87,23 +83,24 @@ function tryUnlock() {
 
 function tryAutoplay(){
 	if (autoplayDone || isLocked() ) return;
-	else if (retryPlay >= CONFIG.MAX_RETRIES){
+
+	if (retryPlay >= CONFIG.MAX_RETRIES){
 		console.error(MESSAGES.RETRY_MAX);
 		location.reload();
 	}
-
+	
 	try {
 		if (!window.netflix?.appContext?.state?.playerApp?.getAPI) {
 			throw new Error(ERR.API_ERROR);
 		}
 		const api = netflix.appContext.state.playerApp.getAPI();
-        const sessionIds = api.videoPlayer.getAllPlayerSessionIds();
+		const sessionIds = api.videoPlayer.getAllPlayerSessionIds();
 
 		if (!sessionIds?.length) {
 			throw new Error(ERR.PLAYER_ERROR);
 		}
 		const player = api.videoPlayer.getVideoPlayerBySessionId(sessionIds[0]);
-        const video = document.querySelector('video');
+		const video = document.querySelector('video');
 
 		if (!player || typeof player.isPaused !== 'function' || !video) {
 			throw new Error(ERR.NOT_READY);
@@ -114,6 +111,7 @@ function tryAutoplay(){
 			player.play().then(() => {
 				console.log(MESSAGES.AUTOPLAY_SUCCESS)
 				autoplayDone = true;
+				clearTimeout(autoplayTimeout);
 			}).catch(e => {
 				console.log(MESSAGES.PLAYBACK_FAILED, e.message);
 				scheduleRetry();
@@ -122,6 +120,7 @@ function tryAutoplay(){
 		else {
 			console.log(MESSAGES.AUTOPLAY_ALREADY_PLAYING);
 			autoplayDone = true;
+			clearTimeout(autoplayTimeout);
 		}
 	} catch(e) {
 		console.log(MESSAGES.AUTOPLAY_FAILED, e.message);
@@ -130,118 +129,94 @@ function tryAutoplay(){
 }//tryAutoplay()
 
 function scheduleRetry() {
+	clearTimeout(autoplayTimeout); 
 	if(retryPlay++ < CONFIG.MAX_RETRIES){
 		console.log(MESSAGES.RETRY(retryPlay, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY));
-		setTimeout(tryAutoplay, CONFIG.RETRY_DELAY);
+		autoplayTimeout = setTimeout(tryAutoplay, CONFIG.RETRY_DELAY);
 	}
 }//scheduleRetry()
 
 // Process video elements with readyState check
 function processVideo(video) {
-	if (autoplayDone) return;
-	
-	if (video.readyState >= 3) {  
-		tryUnlock();
-		tryAutoplay();
-	} else {
-		video.addEventListener('canplay', () => {
-			tryUnlock();
-			tryAutoplay();
-		}, { once: true });
+    if (autoplayDone || domain != "WATCH") return;
+    
+    const playHandler = () => {
+        if (!autoplayDone) {
+            if (isLocked()) tryUnlock();
+            tryAutoplay();
+        }
+    };
+    
+    if (video.readyState >= 3) { 
+        playHandler();
+    } else {
+        video.addEventListener('canplay', playHandler, { once: true });
+    }
+}//processVideo()
+
+function handleKeyEvent(event) {
+	if (event.code === CONFIG.CONTROL_KEY) {
+	  event.preventDefault();
+	  const video = document.querySelector('video');
+	  if (video) {
+		video[video.paused ? 'play' : 'pause']();
+		console.log(video.paused ? MESSAGES.KEY_PLAY : MESSAGES.KEY_PAUSE);
+	  }
 	}
-}
+}//handleKeyEvent()
 
 function init() {
 	console.log(MESSAGES.INIT_START);
-	let page = getDomain();
+	domain = getDomain();
 	tryUnlock();
 
-	if(page == "WATCH"){
-		setTimeout(tryAutoplay, CONFIG.INITIAL_DELAY);
+	if(domain == "WATCH"){
+		autoplayTimeout = setTimeout(tryAutoplay, CONFIG.INITIAL_DELAY);
 
-		window.addEventListener('keydown', function(event) {
-			if (event.code === CONFIG.CONTROL_KEY) {
-				event.preventDefault();
-				const video = document.querySelector('video');
-				if (video) {
-					if (video.paused) {
-						video.play();
-						console.log(MESSAGES.KEY_PLAY(CONFIG.CONTROL_KEY));
-					} else {
-						video.pause();
-						console.log(MESSAGES.KEY_PAUSE(CONFIG.CONTROL_KEY));
-					}
-				}
-			}
-		}, true); // <-- `true` enables "capture" phase
+		window.addEventListener('keydown', handleKeyEvent, {
+			capture: true,
+			passive: true
+		  });
+		cleanupCallbacks.push(() => {
+			window.removeEventListener('keydown', handleKeyEvent);
+		  });
 
 		document.querySelectorAll('video').forEach(processVideo);
 
-		const observer = new MutationObserver((mutations) => {
-			for (const mutation of mutations) {
-				for (const node of mutation.addedNodes) {
-					// Only process video elements
-					if (node.nodeName === 'VIDEO') {
-						processVideo(node);
-					}
-					// Check for video elements within added nodes
-					else if (node.querySelectorAll) {
-						node.querySelectorAll('video').forEach(processVideo);
-					}
-				}
-			}
-		});
-
-	// const observer = new MutationObserver((mutations, obs) => {
-	// 	for (const mutation of mutations) {
-	// 		mutation.addedNodes.forEach(node => {
-	// 			if (node.tagName === 'VIDEO') {
-	// 				const video = node;
-	// 				if (video.readyState >= 3) {
-	// 					tryUnlock();
-	// 					tryAutoplay();
-	// 					obs.disconnect(); // stop observing once ready
-	// 				} else {
-	// 					// wait until the video can play
-	// 					video.addEventListener('canplay', () => {
-	// 						tryUnlock();
-	// 						tryAutoplay();
-	// 						obs.disconnect();
-	// 					}, { once: true });
-	// 				}
-	// 			}
-	// 		});
-	// 	}
-	// });
-
+		const observer = new MutationObserver(mutations => {
+            mutations.forEach(mutation => {
+                mutation.addedNodes.forEach(node => {
+                    if (node.tagName === 'VIDEO') {
+                        processVideo(node);
+                    }
+                    if (node.querySelectorAll) {
+                        node.querySelectorAll('video').forEach(processVideo);
+                    }
+                });
+            });
+        });
 	
 		observer.observe(document.body, {
 			childList: true,
 			subtree: true
 		});
+		cleanupCallbacks.push(() => observer.disconnect());
 	}
-	cleanupCallbacks.push(() => {
-		observer.disconnect();
-		window.removeEventListener('keydown', handleKeyEvent);
-	  });
 
 }//init()
 	
 window.addEventListener('beforeunload', () => {
 	cleanupCallbacks.forEach(fn => fn());
+	clearTimeout(unlockTimeout);
+    clearTimeout(autoplayTimeout);
   });
 
-if(document.getElementsByClassName(SELECTORS.PROFILE_CHOICE).length > 0){ 
-	console.log(MESSAGES.PROFILE_CHOICE_SCREEN); //skip init
-}
-else if (document.readyState === 'complete') {
-	init();
-} 
-else {
-	window.addEventListener('load', init);
-	/*this is never reached lol
-	readyCount++;
-	console.log(`${MESSAGES.LOAD_FAILED} (attempt ${readyCount}/${CONFIG.MAX_RETRIES}`); */  
-}
+const isProfileScreen = document.querySelectorAll(`.${SELECTORS.PROFILE_CHOICE}`).length > 0;
 
-//TODO: refresh page after max attempts
+if (isProfileScreen) {
+console.log(MESSAGES.PROFILE_CHOICE_SCREEN);
+} else if (document.readyState === 'complete') {
+init();
+} else {
+window.addEventListener('load', init);
+}
