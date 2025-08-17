@@ -1,8 +1,63 @@
-import { PAGE_IDENTIFIERS } from "./constants/config.js";
-import { CONFIG } from "./constants/config.js";
-import { MESSAGES } from "./constants/messages.js";
-import { SELECTORS } from "./constants/selectors.js";
-import { ERR } from "./constants/messages.js";
+// import { PAGE_IDENTIFIERS } from "./constants/config.js";
+// import { CONFIG } from "./constants/config.js";
+// import { MESSAGES } from "./constants/messages.js";
+// import { SELECTORS } from "./constants/selectors.js";
+// import { ERR } from "./constants/messages.js";
+
+// ----- constants -----
+const PAGE_IDENTIFIERS = {
+	HOME: "Netflix",
+	WATCH: "netflix.com/watch",   
+	BROWSE: "netflix.com/browse",  
+	TITLE: "netflix.com/title",		
+	LOCK_MSG: "Your device isn\’t part of the Netflix Household for this account",
+	CHOOSE_PROFILE: "Choose Profile", //TODO: confirm msg
+};
+
+const CONFIG = {
+	MAX_RETRIES: 20,
+	INITIAL_DELAY: 3000,  // ms before first autoplay attempt
+	RETRY_DELAY: 1000,    // ms between retries
+	CONTROL_KEY: 'Space',  // key to be used to play and pause
+	MAX_ELEMENTS: 10,
+};
+
+const SELECTORS = {
+    //BLOCKING_ELEMENTS: ".pinLockOverlay, .modalContainer, .overlay",
+    //PROFILE_CHOICE: "profile-selection",
+	VIDEO: "video",
+	FULLSCREEN_ELEMENT: () => document.fullscreenElement,
+	BLOCKING_ELEMENTS: "body *:not(:fullscreen)",
+	PROFILE_CHOICE: "profile-gate-label"
+};
+
+const MESSAGES = {
+	INIT_START: "Initializing - waiting for video load",
+	AUTOPLAY_START: "Netflix AutoPlay started",
+	AUTOPLAY_SUCCESS: "Autoplay successful",
+	AUTOPLAY_ALREADY_PLAYING: "Video is already playing",
+	AUTOPLAY_FAILED: (reason) => `Autoplay attempt failed: ${reason}`,
+	LOAD_FAILED: "Load attempt failed",
+	RETRY: (count, max, delay) => 
+	  `Retrying in ${delay}ms (attempt ${count}/${max})`,
+	RETRY_MAX: "Max retries reached, refreshing page",
+	ELEMENT_NOT_FOUND: "Lock detected but cannot be remove",
+	ELEMENT_REMOVED: "Removed locking element",
+	PLAYBACK_STARTED: "Starting playback...",
+	PLAYBACK_FAILED: (err) => `Playback failed: ${err}`,
+	KEY_PLAY: (key) => { if (key == "SPACE") {"Video played via spacebar"} 
+			else {`Video played via ${key} key`}},
+	KEY_PAUSE: (key) => { if (key == "SPACE") {"Video paused via spacebar"} 
+	else {`Video paused via ${key} key`}},
+	UNLOCK_FAILED: (count) => `removeLock() did not remove the correct element. Elements removed: ${count++})\nTrying again`,
+	PROFILE_CHOICE_SCREEN: "Skipping init: profile choice screen",
+};
+
+const ERR = {
+	PLAYER_ERROR: 'No player sessions available',
+	API_ERROR: 'Netflix API not ready',
+	NOT_READY: 'Player/video not ready',
+};
 
 if (window.__netflixUnblockExecuted) throw new Error("Script already loaded");
 window.__netflixUnblockExecuted = true;
@@ -49,6 +104,7 @@ function removeLock() {
 
 function tryUnlock() {
 	if (!isLocked()) {
+		console.log(MESSAGES.NOT_LOCKED);
 		retryLock = 0;
 		elemCount = 0;
 		return;
@@ -88,7 +144,7 @@ function tryAutoplay(){
 		console.error(MESSAGES.RETRY_MAX);
 		location.reload();
 	}
-	
+
 	try {
 		if (!window.netflix?.appContext?.state?.playerApp?.getAPI) {
 			throw new Error(ERR.API_ERROR);
@@ -130,9 +186,12 @@ function tryAutoplay(){
 
 function scheduleRetry() {
 	clearTimeout(autoplayTimeout); 
-	if(retryPlay++ < CONFIG.MAX_RETRIES){
-		console.log(MESSAGES.RETRY(retryPlay, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY));
-		autoplayTimeout = setTimeout(tryAutoplay, CONFIG.RETRY_DELAY);
+	const video = document.querySelector('video');
+	if(video.paused){
+		if(retryPlay++ < CONFIG.MAX_RETRIES){
+			console.log(MESSAGES.RETRY(retryPlay, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY));
+			autoplayTimeout = setTimeout(tryAutoplay, CONFIG.RETRY_DELAY);
+		}
 	}
 }//scheduleRetry()
 
@@ -166,44 +225,53 @@ function handleKeyEvent(event) {
 }//handleKeyEvent()
 
 function init() {
-	console.log(MESSAGES.INIT_START);
-	domain = getDomain();
-	tryUnlock();
+    console.log(MESSAGES.INIT_START);
 
-	if(domain == "WATCH"){
-		autoplayTimeout = setTimeout(tryAutoplay, CONFIG.INITIAL_DELAY);
+    // Keep domain updated in case user navigates
+    const domainInterval = setInterval(() => {
+        domain = getDomain();
+        if (domain === "WATCH") {
+            tryUnlock();
+            document.querySelectorAll('video').forEach(processVideo);
+        }
+    }, 1000);
+    cleanupCallbacks.push(() => clearInterval(domainInterval));
 
-		window.addEventListener('keydown', handleKeyEvent, {
-			capture: true,
-			passive: true
-		  });
-		cleanupCallbacks.push(() => {
-			window.removeEventListener('keydown', handleKeyEvent);
-		  });
+    // Key press listener
+    window.addEventListener('keydown', handleKeyEvent, {
+        capture: true,
+        passive: true
+    });
+    cleanupCallbacks.push(() => {
+        window.removeEventListener('keydown', handleKeyEvent);
+    });
 
-		document.querySelectorAll('video').forEach(processVideo);
-
-		const observer = new MutationObserver(mutations => {
-            mutations.forEach(mutation => {
-                mutation.addedNodes.forEach(node => {
-                    if (node.tagName === 'VIDEO') {
-                        processVideo(node);
-                    }
-                    if (node.querySelectorAll) {
-                        node.querySelectorAll('video').forEach(processVideo);
-                    }
-                });
+    // Observer for new video elements
+    const videoObserver = new MutationObserver(mutations => {
+        mutations.forEach(mutation => {
+            mutation.addedNodes.forEach(node => {
+                if (node.tagName === 'VIDEO') processVideo(node);
+                if (node.querySelectorAll) node.querySelectorAll('video').forEach(processVideo);
             });
         });
-	
-		observer.observe(document.body, {
-			childList: true,
-			subtree: true
-		});
-		cleanupCallbacks.push(() => observer.disconnect());
-	}
+    });
+    videoObserver.observe(document.body, { childList: true, subtree: true });
+    cleanupCallbacks.push(() => videoObserver.disconnect());
 
+    // Observer for lock overlay changes (secondary safeguard)
+    const lockObserver = new MutationObserver(() => {
+        if (isLocked()) tryUnlock();
+    });
+    lockObserver.observe(document.body, { childList: true, subtree: true });
+    cleanupCallbacks.push(() => lockObserver.disconnect());
+
+    // Initial attempt after small delay
+    setTimeout(() => {
+        tryUnlock();
+        document.querySelectorAll('video').forEach(processVideo);
+    }, CONFIG.INITIAL_DELAY);
 }//init()
+
 	
 window.addEventListener('beforeunload', () => {
 	cleanupCallbacks.forEach(fn => fn());
