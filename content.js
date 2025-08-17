@@ -4,9 +4,11 @@ import { MESSAGES } from "./constants/messages.js";
 import { SELECTORS } from "./constants/selectors.js";
 import { ERR } from "./constants/messages.js";
 
-let retryCount = 0;
+let retryLock = 0;
+let retryPlay = 0;
+let elemCount = 0;
 let autoplayDone = false;
-let readyCount = 0;
+//let readyCount = 0;
 
 function getDomain() {
 	const url = window.location.href;
@@ -23,23 +25,20 @@ function isLocked() {
 	return document.body.innerText.includes((PAGE_IDENTIFIERS.LOCK_MSG));
 }
 
-function pageWatch() {
+// function pageWatch() {
+// }
 
-}
+// function pageBrowse() {
+// }
 
-function pageBrowse() {
-
-}
-
-function pageTitle() {
-
-}
+// function pageTitle() {
+// }
 
 function removeLock() {
 	const elements = document.querySelectorAll(SELECTORS.BLOCKING_ELEMENTS);
+	const fullscreenElement = document.fullscreenElement;
 	let removedAny = false;
-	var domain = getDomain();
-	var count = 0;
+	const domain = getDomain();
 	
 	for (let i = 0; i < elements.length; i++) {
 		const style = getComputedStyle(elements[i]);
@@ -47,38 +46,55 @@ function removeLock() {
 			!elements[i].contains(fullscreenElement)) {
 			elements[i].remove();
 			console.log(MESSAGES.ELEMENT_REMOVED);
+			elemCount++;
 			removedAny = true;
-			if(domain != "WATCH"){
+			if(domain != "WATCH" && !isLocked()){
 				break;
 			}
-		}
-	}
-	if(isLocked()){
-		if(!removedAny){
-			console.error(MESSAGES.ELEMENT_NOT_FOUND);
-		}
-		else if (count < CONFIG.MAX_RETRIES){
-			console.error(MESSAGES.UNLOCK_FAILED(count++));
-			removeLock();
-		}
-		else{
-			console.error(MESSAGES.RETRY_MAX);
-			location.reload();
 		}
 	}
 	return removedAny;
 }//removeLock()
 
+
+function tryUnlock() {
+	const removed = removeLock();
+
+	if (isLocked()) {
+		if (!removed) {
+			console.error(MESSAGES.ELEMENT_NOT_FOUND);
+		}
+
+		retryLock++;
+
+		if (elemCount > CONFIG.MAX_ELEMENTS){
+			console.error(MESSAGES.UNLOCK_FAILED(elemCount));
+			location.reload();
+		}
+		else if (retryLock < CONFIG.MAX_RETRIES) {
+			console.error(MESSAGES.RETRY(retryLock, CONFIG.MAX_ELEMENTS, CONFIG.RETRY_DELAY));
+			setTimeout(tryUnlock(), CONFIG.RETRY_DELAY);
+		} 
+		else {
+			console.error(MESSAGES.RETRY_MAX);
+			location.reload(); // refresh only after max retries
+		}
+	}
+	return isLocked();
+}//tryUnlock()
+
+
+
 function tryAutoplay(){
 	if (autoplayDone) return;
-	else if (retryCount >= MAX_RETRIES){
+	else if (retryPlay >= CONFIG.MAX_RETRIES){
 		console.error(MESSAGES.RETRY_MAX);
 		location.reload();
 	}
 
 	try {
 		if (!window.netflix?.appContext?.state?.playerApp?.getAPI) {
-			throw new Error('Netflix API not ready');
+			throw new Error(ERR.API_ERROR);
 		}
 		const api = netflix.appContext.state.playerApp.getAPI();
         const sessionIds = api.videoPlayer.getAllPlayerSessionIds();
@@ -90,7 +106,7 @@ function tryAutoplay(){
         const video = document.querySelector('video');
 
 		if (!player || typeof player.isPaused !== 'function' || !video) {
-			throw new Error('Player/video not ready');
+			throw new Error(ERR.NOT_READY);
 		}
 
 		if (player.isPaused()){
@@ -114,20 +130,16 @@ function tryAutoplay(){
 }//tryAutoplay()
 
 function scheduleRetry() {
-	if(retryCount++ < CONFIG.MAX_RETRIES){
-		console.log(MESSAGES.RETRY, retryCount, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY);
-		setTimeout(tryAutoplay, RETRY_DELAY);
+	if(retryPlay++ < CONFIG.MAX_RETRIES){
+		console.log(MESSAGES.RETRY(retryPlay, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY));
+		setTimeout(tryAutoplay, CONFIG.RETRY_DELAY);
 	}
 }//scheduleRetry()
 
 function init() {
 	console.log(MESSAGES.INIT_START);
 	let page = getDomain();
-	if (isLocked()){
-		if (!removeLock()){
-		setTimeout(removeLock, CONFIG.INITIAL_DELAY);
-		}
-	}
+	if (isLocked()) tryUnlock();
 	setTimeout(tryAutoplay, CONFIG.INITIAL_DELAY);
 
 	window.addEventListener('keydown', function(event) {
@@ -137,29 +149,62 @@ function init() {
             if (video) {
                 if (video.paused) {
                     video.play();
-                    console.log('Video played via spacebar');
+                    console.log(MESSAGES.KEY_PLAY);
                 } else {
                     video.pause();
-                    console.log('Video paused via spacebar');
+                    console.log(MESSAGES.KEY_PAUSE);
                 }
             }
         }
     }, true); // <-- `true` enables "capture" phase
 
 	// Setup observer for video element
+	// const observer = new MutationObserver((mutations, obs) => {
+	// 	const video = document.querySelector('video');
+	// 	if (video && video.readyState >= 3) {
+	// 		// Video is loaded, try removing elements
+	// 		tryUnlock();
+	// 		if(video.paused){
+	// 			tryAutoplay();
+	// 		}
+	// 		// Disconnect after first successful check
+	// 		//obs.disconnect();
+	// 	}
+	// });
+	// const observer = new MutationObserver((mutations) => {
+	// 	for (const mutation of mutations) {
+	// 		mutation.addedNodes.forEach(node => {
+	// 			if (node.tagName === 'VIDEO') {
+	// 				tryUnlock();
+	// 				tryAutoplay();
+	// 			}
+	// 		});
+	// 	}
+	// });
+
 	const observer = new MutationObserver((mutations, obs) => {
-		const video = document.querySelector('video');
-		if (video && video.readyState >= 3) {
-			// Video is loaded, try removing elements
-			removeBlockingElements();
-			if(video.paused){
-				video.play();
-				console.log(MESSAGES.AUTOPLAY_START);
-			}
-			// Disconnect after first successful check
-			obs.disconnect();
+		for (const mutation of mutations) {
+			mutation.addedNodes.forEach(node => {
+				if (node.tagName === 'VIDEO') {
+					const video = node;
+					if (video.readyState >= 3) {
+						tryUnlock();
+						tryAutoplay();
+						obs.disconnect(); // stop observing once ready
+					} else {
+						// wait until the video can play
+						video.addEventListener('canplay', () => {
+							tryUnlock();
+							tryAutoplay();
+							obs.disconnect();
+						}, { once: true });
+					}
+				}
+			});
 		}
 	});
+	
+	
 	//TODO: possibly use observer to search for lock
 	observer.observe(document.body, {
 		childList: true,
@@ -168,12 +213,13 @@ function init() {
 
 }//init()
 	
-if(document.getElementsByClassName(SELECTORS.PROFILE_CHOICE).length > 0){
-	return;
+if(document.getElementsByClassName(SELECTORS.PROFILE_CHOICE).length > 0){ 
+	console.log(MESSAGES.PROFILE_CHOICE_SCREEN); //skip init
 }
 else if (document.readyState === 'complete' && isLocked()) {
 	init();
-} else {
+} 
+else {
 	window.addEventListener('load', init);
 	/*this is never reached lol
 	readyCount++;
