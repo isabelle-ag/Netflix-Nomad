@@ -45,10 +45,12 @@ const MESSAGES = {
 	ELEMENT_REMOVED: "Removed locking element",
 	PLAYBACK_STARTED: "Starting playback...",
 	PLAYBACK_FAILED: (err) => `Playback failed: ${err}`,
-	KEY_PLAY: (key) => { if (key == "SPACE") {"Video played via spacebar"} 
-			else {`Video played via ${key} key`}},
-	KEY_PAUSE: (key) => { if (key == "SPACE") {"Video paused via spacebar"} 
-	else {`Video paused via ${key} key`}},
+	KEY_PLAY: (key) => key === "Space"
+    ? "Video played via spacebar"
+    : `Video played via ${key} key`,
+KEY_PAUSE: (key) => key === "Space"
+    ? "Video paused via spacebar"
+    : `Video paused via ${key} key`,
 	UNLOCK_FAILED: (count) => `removeLock() did not remove the correct element. Elements removed: ${count++})\nTrying again`,
 	PROFILE_CHOICE_SCREEN: "Skipping init: profile choice screen",
 };
@@ -104,7 +106,6 @@ function removeLock() {
 
 function tryUnlock() {
 	if (!isLocked()) {
-		console.log(MESSAGES.NOT_LOCKED);
 		retryLock = 0;
 		elemCount = 0;
 		return;
@@ -135,54 +136,61 @@ function tryUnlock() {
 	}
 }//tryUnlock()
 
+function waitForNetflixAPI(maxRetries = 50, delay = 500) {
+    return new Promise((resolve, reject) => {
+        let attempts = 0;
+        const interval = setInterval(() => {
+            attempts++;
+            const appContext = window.netflix?.appContext;
+            const playerApp = appContext?.state?.playerApp;
+            const getAPI = playerApp?.getAPI;
+
+            if (getAPI) {
+                clearInterval(interval);
+                resolve(getAPI());
+            } else if (attempts >= maxRetries) {
+                clearInterval(interval);
+                reject(new Error(ERR.API_ERROR));
+            }
+        }, delay);
+    });
+}
 
 
-function tryAutoplay(){
-	if (autoplayDone || isLocked() ) return;
+async function tryAutoplay() {
+    if (autoplayDone) return;
 
-	if (retryPlay >= CONFIG.MAX_RETRIES){
-		console.error(MESSAGES.RETRY_MAX);
-		location.reload();
-	}
+    const video = document.querySelector("video");
+    if (!video) return;
 
-	try {
-		if (!window.netflix?.appContext?.state?.playerApp?.getAPI) {
-			throw new Error(ERR.API_ERROR);
-		}
-		const api = netflix.appContext.state.playerApp.getAPI();
-		const sessionIds = api.videoPlayer.getAllPlayerSessionIds();
+    try {
+        await video.play();
+		autoplayDone = true;
+		setTimeout(() => {
+			if (video.paused) {
+				console.log("🔁 Forcing resume after Netflix pause");
+				video.play();
+			}
+		}, 1000);
 
-		if (!sessionIds?.length) {
-			throw new Error(ERR.PLAYER_ERROR);
-		}
-		const player = api.videoPlayer.getVideoPlayerBySessionId(sessionIds[0]);
-		const video = document.querySelector('video');
+    } catch (err) {
+        console.error("❌ Autoplay failed:", err.message);
+        scheduleRetry(); // <-- retry if it failed
+        return;
+    }
 
-		if (!player || typeof player.isPaused !== 'function' || !video) {
-			throw new Error(ERR.NOT_READY);
-		}
+    // Optional Netflix API part...
+    try {
+        await waitForNetflixAPI(CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY);
+        const api = netflix.appContext.state.playerApp.getAPI();
+        console.log("✅ Netflix API ready:", api);
+    } catch (err) {
+        console.warn("⚠️ API not ready yet, continuing without it:", err.message);
+    }
+}
 
-		if (player.isPaused()){
-			console.log(MESSAGES.PLAYBACK_STARTED);
-			player.play().then(() => {
-				console.log(MESSAGES.AUTOPLAY_SUCCESS)
-				autoplayDone = true;
-				clearTimeout(autoplayTimeout);
-			}).catch(e => {
-				console.log(MESSAGES.PLAYBACK_FAILED, e.message);
-				scheduleRetry();
-			});
-		}
-		else {
-			console.log(MESSAGES.AUTOPLAY_ALREADY_PLAYING);
-			autoplayDone = true;
-			clearTimeout(autoplayTimeout);
-		}
-	} catch(e) {
-		console.log(MESSAGES.AUTOPLAY_FAILED, e.message);
-		scheduleRetry();
-	}
-}//tryAutoplay()
+
+
 
 function scheduleRetry() {
 	clearTimeout(autoplayTimeout); 
@@ -197,30 +205,30 @@ function scheduleRetry() {
 
 // Process video elements with readyState check
 function processVideo(video) {
-    if (autoplayDone || domain != "WATCH") return;
-    
-    const playHandler = () => {
-        if (!autoplayDone) {
-            if (isLocked()) tryUnlock();
-            tryAutoplay();
-        }
-    };
-    
-    if (video.readyState >= 3) { 
-        playHandler();
+    if (autoplayDone || domain !== "WATCH") return;
+
+    if (video.readyState >= 3) {
+        tryAutoplay();
     } else {
-        video.addEventListener('canplay', playHandler, { once: true });
+        video.addEventListener('canplay', tryAutoplay, { once: true });
     }
-}//processVideo()
+}
+
 
 function handleKeyEvent(event) {
 	if (event.code === CONFIG.CONTROL_KEY) {
-	  event.preventDefault();
-	  const video = document.querySelector('video');
-	  if (video) {
-		video[video.paused ? 'play' : 'pause']();
-		console.log(video.paused ? MESSAGES.KEY_PLAY : MESSAGES.KEY_PAUSE);
-	  }
+		event.preventDefault();
+		const video = document.querySelector('video');
+		if (video) {
+			if (video.paused) {
+				video.play();
+				console.log(MESSAGES.KEY_PLAY(event.code));
+			} 
+			else {
+				video.pause();
+				console.log(MESSAGES.KEY_PAUSE(event.code));
+			}
+		}
 	}
 }//handleKeyEvent()
 
