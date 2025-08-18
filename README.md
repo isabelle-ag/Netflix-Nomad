@@ -5,11 +5,16 @@
 
 > Bypass Netflix's “Not part of this household” restrictions and keep playback controls functional.
 
+| **Disclaimer** |
+| :------------ |
+| This extension currently removes Netflix's native video control bar <sup>*</sup> <br>To compensate, it provides:<br>- Spacebar keyboard shortcut for play/pause<br>- Left-click playback toggle when video is focused<br>- Auto-playback resumption after unlocking |
+
+<sup>* *Working to restore full control functionality in future updates*</sup>
+
 ---
 
 ## Table of Contents
 - [Features](#features)
-- [Disclaimer](#disclaimer)
 - [Installation](#installation)
 - [How It Works](#how-it-works)
 - [Video Controls Reference](#video-controls-reference)
@@ -29,16 +34,6 @@
 
 ---
 
-## Disclaimer
-This extension currently removes Netflix's native video control bar. To compensate, it provides:
-- Spacebar keyboard shortcut for play/pause
-- Left-click playback toggle when video is focused
-- Auto-playback resumption after unlocking
-
-*Working to restore full control functionality in future updates*
-
----
-
 ## Installation
 1. **Firefox**  
    - Install from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/netflix-nomad/)  
@@ -48,7 +43,9 @@ This extension currently removes Netflix's native video control bar. To compensa
      3. Click **Load Temporary Add-on**  
      4. Choose `manifest.json` from the extension folder  
 
-> Currently tested only in Firefox. Chrome build requires further testing.  
+> Currently tested only in Firefox. Chrome build requires further testing.
+
+---
 
 ## How It Works
 Netflix Nomad bypasses household verification by:  
@@ -72,23 +69,25 @@ This extension uses **non-invasive DOM manipulation**:
 
 *Unlike network-level solutions, this DOM-focused approach preserves Netflix's native functionality while specifically targeting only the restriction overlays.*
 
+---
+
 ## Video Controls Reference
 Netflix Nomad restores intuitive controls so playback remains fully usable even without the native control bar.  
 | Action | Shortcut |
 |--------|--------|
-| Play/Pause | <kbd>Space</kbd> <sup>✪</sup> <br> <sub>Single left-click on video <sup>✪</sup></sub> |
-| Skip Intro | <kbd>S</kbd> <sup>~</sup> |
-| Skip Back/Forward 10s | <kbd>←</kbd> / <kbd>→</kbd> <sup>~</sup> |
-| Volume Up/Down | <kbd>↑</kbd> / <kbd>↓</kbd> <sup>^</sup> |
-| Mute Toggle | <kbd>M</kbd> <sup>^</sup> |
-| Fullscreen | <kbd>F</kbd> <sup>^</sup> <br> <sub>Double left-click on video<sup>^</sup></sub> |
-| Toggle Subtitles | <kbd>C</kbd> <sup>~</sup> |
-| Audio Track Menu | <kbd>Shift</kbd> + <kbd>S</kbd> <sup>~</sup> |
+| Play/Pause | <kbd>Space</kbd> <sup>✢</sup> <br> <sub>Single left-click on video <sup>✢</sup></sub> |
+| Skip Intro | <kbd>S</kbd> <sup>✦</sup> |
+| Skip Back/Forward 10s | <kbd>←</kbd> / <kbd>→</kbd> <sup>✦</sup> |
+| Volume Up/Down | <kbd>↑</kbd> / <kbd>↓</kbd> <sup>✲</sup> |
+| Mute Toggle | <kbd>M</kbd> <sup>✲</sup> |
+| Fullscreen | <kbd>F</kbd> <sup>✲</sup> <br> <sub>Double left-click on video<sup>✦</sup></sub> |
+| Toggle Subtitles | <kbd>C</kbd> <sup>✦</sup> |
+| Audio Track Menu | <kbd>Shift</kbd> + <kbd>S</kbd> <sup>✦</sup> |
 
-> <sup>*Legend* <br>
-> `✪` = Extension<br>
-> `~` = Netflix native<br>
-> `^` = Browser standard</sup>
+> <sup>*Shortcut source:*<br>
+> `✢` = Extension<br>
+> `✦` = Netflix native<br>
+> `✲` = Browser standard</sup>
 
 ---
 
