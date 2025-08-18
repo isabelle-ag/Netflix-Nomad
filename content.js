@@ -16,15 +16,13 @@ const PAGE_IDENTIFIERS = {
 
 const CONFIG = {
 	MAX_RETRIES: 20,
-	INITIAL_DELAY: 3000,  // ms before first autoplay attempt
-	RETRY_DELAY: 1000,    // ms between retries
-	CONTROL_KEY: 'Space',  // key to be used to play and pause
+	INITIAL_DELAY: 3000, 
+	RETRY_DELAY: 1000,    
+	CONTROL_KEY: 'Space',  
 	MAX_ELEMENTS: 10,
 };
 
 const SELECTORS = {
-    //BLOCKING_ELEMENTS: ".pinLockOverlay, .modalContainer, .overlay",
-    //PROFILE_CHOICE: "profile-selection",
 	VIDEO: "video",
 	FULLSCREEN_ELEMENT: () => document.fullscreenElement,
 	BLOCKING_ELEMENTS: "body *:not(:fullscreen)",
@@ -33,10 +31,13 @@ const SELECTORS = {
 
 const MESSAGES = {
 	INIT_START: "Initializing - waiting for video load",
+	API_READY: "Netflix API is ready",
+	API_NOT_READY: "Netflix API is not ready, continuing without it",
 	AUTOPLAY_START: "Netflix AutoPlay started",
 	AUTOPLAY_SUCCESS: "Autoplay successful",
 	AUTOPLAY_ALREADY_PLAYING: "Video is already playing",
 	AUTOPLAY_FAILED: (reason) => `Autoplay attempt failed: ${reason}`,
+	AUTOPLAY_RESUME: "Resuming autoplay after netflix paused it",
 	LOAD_FAILED: "Load attempt failed",
 	RETRY: (count, max, delay) => 
 	  `Retrying in ${delay}ms (attempt ${count}/${max})`,
@@ -48,16 +49,17 @@ const MESSAGES = {
 	KEY_PLAY: (key) => key === "Space"
     ? "Video played via spacebar"
     : `Video played via ${key} key`,
-KEY_PAUSE: (key) => key === "Space"
+	KEY_PAUSE: (key) => key === "Space"
     ? "Video paused via spacebar"
     : `Video paused via ${key} key`,
 	UNLOCK_FAILED: (count) => `removeLock() did not remove the correct element. Elements removed: ${count++})\nTrying again`,
 	PROFILE_CHOICE_SCREEN: "Skipping init: profile choice screen",
+	
 };
 
 const ERR = {
 	PLAYER_ERROR: 'No player sessions available',
-	API_ERROR: 'Netflix API not ready',
+	API_ERROR: 'Netflix API not ready, continuing without it',
 	NOT_READY: 'Player/video not ready',
 };
 
@@ -79,11 +81,12 @@ function getDomain() {
 	if (url.includes(PAGE_IDENTIFIERS.TITLE)) return "TITLE";
 	if (document.title.includes(PAGE_IDENTIFIERS.HOME)) return "HOME";
 	return "UNKNOWN";
-}
+}//getDomain()
 
 function isLocked() {
 	return document.body.innerText.includes((PAGE_IDENTIFIERS.LOCK_MSG));
 }
+
 function removeLock() {
 	const elements = document.querySelectorAll(SELECTORS.BLOCKING_ELEMENTS);
 	const fullscreenElement = document.fullscreenElement;
@@ -136,7 +139,7 @@ function tryUnlock() {
 	}
 }//tryUnlock()
 
-function waitForNetflixAPI(maxRetries = 50, delay = 500) {
+function waitForAPI(maxRetries = 50, delay = 500) {
     return new Promise((resolve, reject) => {
         let attempts = 0;
         const interval = setInterval(() => {
@@ -154,7 +157,7 @@ function waitForNetflixAPI(maxRetries = 50, delay = 500) {
             }
         }, delay);
     });
-}
+}//waitfor
 
 
 async function tryAutoplay() {
@@ -168,29 +171,24 @@ async function tryAutoplay() {
 		autoplayDone = true;
 		setTimeout(() => {
 			if (video.paused) {
-				console.log("🔁 Forcing resume after Netflix pause");
+				console.log(MESSAGES.AUTOPLAY_RESUME);
 				video.play();
 			}
 		}, 1000);
 
-    } catch (err) {
-        console.error("❌ Autoplay failed:", err.message);
-        scheduleRetry(); // <-- retry if it failed
+    } catch (e) {
+        console.log(MESSAGES.AUTOPLAY_FAILED, e.message);
+        scheduleRetry();
         return;
     }
-
-    // Optional Netflix API part...
     try {
-        await waitForNetflixAPI(CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY);
+        await waitForAPI(CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY);
         const api = netflix.appContext.state.playerApp.getAPI();
-        console.log("✅ Netflix API ready:", api);
-    } catch (err) {
-        console.warn("⚠️ API not ready yet, continuing without it:", err.message);
+        console.log(MESSAGES.API_READY, api);
+    } catch (e) {
+        console.warn(ERR.API_ERROR, e.message);
     }
-}
-
-
-
+}//tryAutoplay()
 
 function scheduleRetry() {
 	clearTimeout(autoplayTimeout); 
@@ -203,7 +201,6 @@ function scheduleRetry() {
 	}
 }//scheduleRetry()
 
-// Process video elements with readyState check
 function processVideo(video) {
     if (autoplayDone || domain !== "WATCH") return;
 
@@ -212,8 +209,7 @@ function processVideo(video) {
     } else {
         video.addEventListener('canplay', tryAutoplay, { once: true });
     }
-}
-
+}//processVideo()
 
 function handleKeyEvent(event) {
 	if (event.code === CONFIG.CONTROL_KEY) {
@@ -289,9 +285,10 @@ window.addEventListener('beforeunload', () => {
 
 const isProfileScreen = document.querySelectorAll(`.${SELECTORS.PROFILE_CHOICE}`).length > 0;
 
-if (isProfileScreen) {
+/*if (isProfileScreen) {
 console.log(MESSAGES.PROFILE_CHOICE_SCREEN);
-} else if (document.readyState === 'complete') {
+} else */
+if (document.readyState === 'complete') {
 init();
 } else {
 window.addEventListener('load', init);
