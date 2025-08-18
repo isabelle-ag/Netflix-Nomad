@@ -211,23 +211,6 @@ function processVideo(video) {
     }
 }//processVideo()
 
-// function handleKeyEvent(event) {
-// 	if (event.code === CONFIG.CONTROL_KEY) {
-// 		event.preventDefault();
-// 		const video = document.querySelector('video');
-// 		if (video) {
-// 			if (video.paused) {
-// 				video.play();
-// 				console.log(MESSAGES.KEY_PLAY(event.code));
-// 			} 
-// 			else {
-// 				video.pause();
-// 				console.log(MESSAGES.KEY_PAUSE(event.code));
-// 			}
-// 		}
-// 	}
-// }//handleKeyEvent()
-
 function getVideoElement() {
     // Prioritize fullscreen video
     if (document.fullscreenElement?.querySelector('video')) {
@@ -265,29 +248,6 @@ function init() {
         }
     }, 1000);
     cleanupCallbacks.push(() => clearInterval(domainInterval));
-
-    // Key press listener
-	// window.addEventListener('keydown', function(event) {
-    //     if (event.code === 'Space') {
-    //         event.preventDefault();
-    //         const video = document.querySelector('video');
-	// 		togglePlayback(video);
-	// 	}
-	// }
-	// window.addEventListener('keydown', (eventKey) => {
-	// 	if (eventKey.code === CONFIG.CONTROL_KEY && !eventKey.repeat) {
-	// 		const video = document.querySelector("video");
-	// 		togglePlayback(video);
-	// 		eventKey.preventDefault();
-	// 	}
-	// });
-    // window.addEventListener('keydown', handleKeyEvent, {
-    //     capture: true,
-    //     passive: true
-    // });
-    // cleanupCallbacks.push(() => {
-    //     window.removeEventListener('keydown', handleKeyEvent);
-    // });
 
 	const playbackHandler = (event) => {
         // For keyboard events
