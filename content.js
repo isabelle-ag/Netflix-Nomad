@@ -211,22 +211,47 @@ function processVideo(video) {
     }
 }//processVideo()
 
-function handleKeyEvent(event) {
-	if (event.code === CONFIG.CONTROL_KEY) {
-		event.preventDefault();
-		const video = document.querySelector('video');
-		if (video) {
-			if (video.paused) {
-				video.play();
-				console.log(MESSAGES.KEY_PLAY(event.code));
-			} 
-			else {
-				video.pause();
-				console.log(MESSAGES.KEY_PAUSE(event.code));
-			}
-		}
-	}
-}//handleKeyEvent()
+// function handleKeyEvent(event) {
+// 	if (event.code === CONFIG.CONTROL_KEY) {
+// 		event.preventDefault();
+// 		const video = document.querySelector('video');
+// 		if (video) {
+// 			if (video.paused) {
+// 				video.play();
+// 				console.log(MESSAGES.KEY_PLAY(event.code));
+// 			} 
+// 			else {
+// 				video.pause();
+// 				console.log(MESSAGES.KEY_PAUSE(event.code));
+// 			}
+// 		}
+// 	}
+// }//handleKeyEvent()
+
+function getVideoElement() {
+    // Prioritize fullscreen video
+    if (document.fullscreenElement?.querySelector('video')) {
+        return document.fullscreenElement.querySelector('video');
+    }
+    return document.querySelector('video');
+}//getVideoElement()
+
+function togglePlayback() {
+    const video = getVideoElement();
+    if (!video) return;
+    
+    try {
+        if (video.paused) {
+            video.play();
+            console.log(MESSAGES.KEY_PLAY);
+        } else {
+            video.pause();
+            console.log(MESSAGES.KEY_PAUSE);
+        }
+    } catch (e) {
+        console.warn("Playback toggle failed:", e);
+    }
+}//togglePlayback()
 
 function init() {
     console.log(MESSAGES.INIT_START);
@@ -242,13 +267,56 @@ function init() {
     cleanupCallbacks.push(() => clearInterval(domainInterval));
 
     // Key press listener
-    window.addEventListener('keydown', handleKeyEvent, {
-        capture: true,
-        passive: true
-    });
+	// window.addEventListener('keydown', function(event) {
+    //     if (event.code === 'Space') {
+    //         event.preventDefault();
+    //         const video = document.querySelector('video');
+	// 		togglePlayback(video);
+	// 	}
+	// }
+	// window.addEventListener('keydown', (eventKey) => {
+	// 	if (eventKey.code === CONFIG.CONTROL_KEY && !eventKey.repeat) {
+	// 		const video = document.querySelector("video");
+	// 		togglePlayback(video);
+	// 		eventKey.preventDefault();
+	// 	}
+	// });
+    // window.addEventListener('keydown', handleKeyEvent, {
+    //     capture: true,
+    //     passive: true
+    // });
+    // cleanupCallbacks.push(() => {
+    //     window.removeEventListener('keydown', handleKeyEvent);
+    // });
+
+	const playbackHandler = (event) => {
+        // For keyboard events
+        if (event.type === 'keydown' && event.code === CONFIG.CONTROL_KEY) {
+            event.preventDefault();
+            event.stopPropagation(); // Prevent Netflix handlers from interfering
+            togglePlayback();
+        }
+        // For mouse events
+        else if (event.type === 'click' && event.button === 0) {
+            // Only trigger if video is focused or in fullscreen
+			togglePlayback();
+            // if (document.fullscreenElement || document.activeElement?.tagName === 'VIDEO') {
+            //     togglePlayback();
+            // }
+        }
+    };
+
+    // Keydown uses capture phase to intercept before Netflix's handlers
+    window.addEventListener('keydown', playbackHandler, true);
+    
+    // Click doesn't need capture phase
+    window.addEventListener('click', playbackHandler);
+
     cleanupCallbacks.push(() => {
-        window.removeEventListener('keydown', handleKeyEvent);
+        window.removeEventListener('keydown', playbackHandler, true); // Must match capture phase
+        window.removeEventListener('click', playbackHandler);
     });
+
 
     // Observer for new video elements
     const videoObserver = new MutationObserver(mutations => {
