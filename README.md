@@ -5,22 +5,28 @@
 
 > Bypass Netflix's “Not part of this household” restrictions and keep playback controls functional.
 
-| **Disclaimer** |
-| :------------ |
-| This extension currently removes Netflix's native video control bar <sup>*</sup> <br>To compensate, it provides:<br>- Spacebar keyboard shortcut for play/pause<br>- Left-click playback toggle when video is focused<br>- Auto-playback resumption after unlocking |
-
-<sup>* *Working to restore full control functionality in future updates*</sup>
-
 ---
 
 ## Table of Contents
+- [Overview](#overview)
 - [Features](#features)
 - [Installation](#installation)
 - [How It Works](#how-it-works)
-- [Video Controls Reference](#video-controls-reference)
+- [Video Controls Reference](#keyboard-controls)
 - [Support Development](#support-development)
 - [Known Limitations](#known-limitations)
 - [Legal Disclaimer](#legal-disclaimer)
+
+---
+
+## Overview
+
+> ⚠️ **Heads-up:** Netflix Nomad currently **hides Netflix’s native control bar**. To keep playback usable, the extension adds lightweight keyboard and mouse controls (see below). Restoring the native bar is on the roadmap.
+
+**What it does**
+- Dismisses/neutralizes “household lock” overlays so the player is reachable.
+- Resumes playback automatically after unlock.
+- Adds reliable play/pause via **Space**, click-to-toggle, and other essentials
 
 ---
 
@@ -29,49 +35,37 @@
 - **Keyboard Controls**: Spacebar toggles play/pause (restores missing native behavior)
 - **Click Control**: Left-click video to toggle playback
 - **Fullscreen Support**: <kbd>F</kbd> key works when video is focused
-- **Lightweight**: No background processes or tracking
-- **Instant Activation**: Works immediately on page load
+- **Lightweight**: No persistent background processes or tracking, minimal footprint
+- **Instant Activation**: Runs immediately on page load, no setup required
 
 ---
 
 ## Installation
-1. **Firefox**  
-   - Install from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/netflix-nomad/)  
-   - Or load manually:
-     1. Go to `about:debugging`  
-     2. Select **This Firefox**  
-     3. Click **Load Temporary Add-on**  
-     4. Choose `manifest.json` from the extension folder  
-
+Install from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/netflix-nomad/)
+     
 > Currently tested only in Firefox. Chrome build requires further testing.
 
 ---
 
 ## How It Works
-Netflix Nomad bypasses household verification by:  
-1. Removing blocking overlay elements
-2. Auto-resuming playback after unlock
-3. Providing alternative playback controls (see [Video Controls](#video-controls-reference))
-4. Retrying automatically if initial unlock fails
+Netflix Nomad bypasses household verification through **non-invasive DOM manipulation**, exclusively targeting restriction overlays while preserving core functionality:
+- Removes blocking overlays without affecting Netflix's playback engine or video pipeline
+- Adds minimal play/pause/fullscreen listeners for seamless UX
+- Automatically retries when overlays load late
+- Zero network traffic interception or modification
+- Requires only standard page access permissions
 
-### Technical Details & Advantages
-This extension uses **non-invasive DOM manipulation**:  
-- Removes only the blocking overlay elements (leaves Netflix’s core functionality intact)
-- Does not intercept or alter network traffic
-- Keeps Netflix’s native video streaming pipeline untouched
-- Requires no special permissions beyond page access
-
-**Key benefits:**
-- **Stealthy**: Less detectable by Netflix since no API calls are blocked
-- **Resilient**: Works independently of Netflix backend changes
-- **Lightweight**: Minimal performance impact
-- **Safe**: Doesn’t interfere with authentication or billing systems
+**Key Advantages**
+- **Low Detectability:** Avoids network/DRM hooks used by Netflix's detection systems
+- **Lightweight:** No background scripts; minimal performance impact
+- **Safe:** Never interacts with authentication or billing systems
+- **Resilient:** Functions independently of Netflix backend changes
 
 *Unlike network-level solutions, this DOM-focused approach preserves Netflix's native functionality while specifically targeting only the restriction overlays.*
 
 ---
 
-## Video Controls Reference
+## Keyboard Controls
 Netflix Nomad restores intuitive controls so playback remains fully usable even without the native control bar.  
 | Action | Shortcut |
 |--------|--------|
