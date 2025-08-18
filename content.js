@@ -212,22 +212,15 @@ function init() {
         }
         // For mouse events
         else if (event.type === 'click' && event.button === 0) {
-            // Only trigger if video is focused or in fullscreen
 			togglePlayback();
-            // if (document.fullscreenElement || document.activeElement?.tagName === 'VIDEO') {
-            //     togglePlayback();
-            // }
         }
     };
 
-    // Keydown uses capture phase to intercept before Netflix's handlers
     window.addEventListener('keydown', playbackHandler, true);
-    
-    // Click doesn't need capture phase
     window.addEventListener('click', playbackHandler);
 
     cleanupCallbacks.push(() => {
-        window.removeEventListener('keydown', playbackHandler, true); // Must match capture phase
+        window.removeEventListener('keydown', playbackHandler, true); 
         window.removeEventListener('click', playbackHandler);
     });
 
