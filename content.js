@@ -1,9 +1,3 @@
-// import { PAGE_IDENTIFIERS } from "./constants/config.js";
-// import { CONFIG } from "./constants/config.js";
-// import { MESSAGES } from "./constants/messages.js";
-// import { SELECTORS } from "./constants/selectors.js";
-// import { ERR } from "./constants/messages.js";
-
 // ----- constants -----
 const PAGE_IDENTIFIERS = {
 	HOME: "Netflix",
@@ -31,8 +25,6 @@ const SELECTORS = {
 
 const MESSAGES = {
 	INIT_START: "Initializing - waiting for video load",
-	API_READY: "Netflix API is ready",
-	API_NOT_READY: "Netflix API is not ready, continuing without it",
 	AUTOPLAY_START: "Netflix AutoPlay started",
 	AUTOPLAY_SUCCESS: "Autoplay successful",
 	AUTOPLAY_ALREADY_PLAYING: "Video is already playing",
@@ -59,13 +51,15 @@ const MESSAGES = {
 
 const ERR = {
 	PLAYER_ERROR: 'No player sessions available',
-	API_ERROR: 'Netflix API not ready, continuing without it',
 	NOT_READY: 'Player/video not ready',
+	REDUNDANT: "Script already loaded"
 };
 
-if (window.__netflixUnblockExecuted) throw new Error("Script already loaded");
+//safegaurd
+if (window.__netflixUnblockExecuted) throw new Error(ERR.REDUNDANT);
 window.__netflixUnblockExecuted = true;
 
+//variables
 let retryLock = 0;
 let retryPlay = 0;
 let elemCount = 0;
@@ -77,10 +71,7 @@ let unlockTimeout, autoplayTimeout;
 function getDomain() {
 	const url = window.location.href;
 	if (url.includes(PAGE_IDENTIFIERS.WATCH)) return "WATCH";
-	if (url.includes(PAGE_IDENTIFIERS.BROWSE)) return "BROWSE";
-	if (url.includes(PAGE_IDENTIFIERS.TITLE)) return "TITLE";
-	if (document.title.includes(PAGE_IDENTIFIERS.HOME)) return "HOME";
-	return "UNKNOWN";
+	return "OTHER";
 }//getDomain()
 
 function isLocked() {
@@ -119,7 +110,6 @@ function tryUnlock() {
 	if (isLocked()) {
 		if (!removed) {
 			console.error(MESSAGES.ELEMENT_NOT_FOUND);
-			return;
 		}
 
 		retryLock++;
@@ -138,26 +128,6 @@ function tryUnlock() {
 		}
 	}
 }//tryUnlock()
-
-function waitForAPI(maxRetries = 50, delay = 500) {
-    return new Promise((resolve, reject) => {
-        let attempts = 0;
-        const interval = setInterval(() => {
-            attempts++;
-            const appContext = window.netflix?.appContext;
-            const playerApp = appContext?.state?.playerApp;
-            const getAPI = playerApp?.getAPI;
-
-            if (getAPI) {
-                clearInterval(interval);
-                resolve(getAPI());
-            } else if (attempts >= maxRetries) {
-                clearInterval(interval);
-                reject(new Error(ERR.API_ERROR));
-            }
-        }, delay);
-    });
-}//waitfor
 
 
 async function tryAutoplay() {
@@ -180,13 +150,6 @@ async function tryAutoplay() {
         console.log(MESSAGES.AUTOPLAY_FAILED, e.message);
         scheduleRetry();
         return;
-    }
-    try {
-        await waitForAPI(CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY);
-        const api = netflix.appContext.state.playerApp.getAPI();
-        console.log(MESSAGES.API_READY, api);
-    } catch (e) {
-        console.warn(ERR.API_ERROR, e.message);
     }
 }//tryAutoplay()
 
@@ -230,16 +193,7 @@ function handleKeyEvent(event) {
 
 function init() {
     console.log(MESSAGES.INIT_START);
-
-    // Keep domain updated in case user navigates
-    const domainInterval = setInterval(() => {
-        domain = getDomain();
-        if (domain === "WATCH") {
-            tryUnlock();
-            document.querySelectorAll('video').forEach(processVideo);
-        }
-    }, 1000);
-    cleanupCallbacks.push(() => clearInterval(domainInterval));
+	domain = getDomain();
 
     // Key press listener
     window.addEventListener('keydown', handleKeyEvent, {
@@ -248,7 +202,7 @@ function init() {
     });
     cleanupCallbacks.push(() => {
         window.removeEventListener('keydown', handleKeyEvent);
-    });
+    });	
 
     // Observer for new video elements
     const videoObserver = new MutationObserver(mutations => {
