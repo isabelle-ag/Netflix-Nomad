@@ -2,7 +2,6 @@
 const IDENTIFIERS = {
 	WATCH: "netflix.com/watch",   
 	LOCK_MSG: "Your device isn\’t part of the Netflix Household for this account",
-	CHOOSE_PROFILE: "Choose Profile", 
 	TARGET_CLASS: "nf-modal interstitial-full-screen",
 };
 
@@ -22,7 +21,7 @@ const SELECTORS = {
 };
 
 const MESSAGES = {
-	INIT_START: "Initializing - waiting for video load",
+	INIT_START: "Initializing",
 	AUTOPLAY_START: "Netflix AutoPlay started",
 	AUTOPLAY_SUCCESS: "Autoplay successful",
 	AUTOPLAY_ALREADY_PLAYING: "Video is already playing",
@@ -196,8 +195,6 @@ function togglePlayback() {
 
 function init() {
     console.log(MESSAGES.INIT_START);
-	domain = getDomain();
-
 
 	const playbackHandler = (event) => {
 		// For keyboard events
