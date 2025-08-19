@@ -1,11 +1,9 @@
 // ----- constants -----
-const PAGE_IDENTIFIERS = {
-	HOME: "Netflix",
+const IDENTIFIERS = {
 	WATCH: "netflix.com/watch",   
-	BROWSE: "netflix.com/browse",  
-	TITLE: "netflix.com/title",		
 	LOCK_MSG: "Your device isn\’t part of the Netflix Household for this account",
-	CHOOSE_PROFILE: "Choose Profile", //TODO: confirm msg
+	CHOOSE_PROFILE: "Choose Profile", 
+	TARGET_CLASS: "nf-modal interstitial-full-screen",
 };
 
 const CONFIG = {
@@ -70,18 +68,19 @@ let unlockTimeout, autoplayTimeout;
 
 function getDomain() {
 	const url = window.location.href;
-	if (url.includes(PAGE_IDENTIFIERS.WATCH)) return "WATCH";
+	if (url.includes(IDENTIFIERS.WATCH)) return "WATCH";
 	return "OTHER";
-}//getDomain()
+}
 
 function isLocked() {
-	return document.body.innerText.includes((PAGE_IDENTIFIERS.LOCK_MSG));
+	return document.body.innerText.includes((IDENTIFIERS.LOCK_MSG));
 }
 
 function removeLock() {
-	const elements = document.querySelectorAll(SELECTORS.BLOCKING_ELEMENTS);
 	const fullscreenElement = document.fullscreenElement;
 	let removedAny = false;
+
+	const elements = document.getElementsByClassName(IDENTIFIERS.TARGET_CLASS);
 	
 	for (let i = 0; i < elements.length; i++) {
 		const style = getComputedStyle(elements[i]);
@@ -91,12 +90,10 @@ function removeLock() {
 			console.log(MESSAGES.ELEMENT_REMOVED);
 			elemCount++;
 			removedAny = true;
-			if(!isLocked()) break;
 		}
 	}
 	return removedAny;
-}//removeLock()
-
+}
 
 function tryUnlock() {
 	if (!isLocked()) {
@@ -124,11 +121,10 @@ function tryUnlock() {
 		} 
 		else {
 			console.error(MESSAGES.RETRY_MAX);
-			location.reload(); // refresh only after max retries
+			location.reload(); 
 		}
 	}
-}//tryUnlock()
-
+}
 
 async function tryAutoplay() {
     if (autoplayDone) return;
@@ -151,7 +147,7 @@ async function tryAutoplay() {
         scheduleRetry();
         return;
     }
-}//tryAutoplay()
+}
 
 function scheduleRetry() {
 	clearTimeout(autoplayTimeout); 
@@ -162,7 +158,7 @@ function scheduleRetry() {
 			autoplayTimeout = setTimeout(tryAutoplay, CONFIG.RETRY_DELAY);
 		}
 	}
-}//scheduleRetry()
+}
 
 function processVideo(video) {
     if (autoplayDone || domain !== "WATCH") return;
@@ -172,15 +168,14 @@ function processVideo(video) {
     } else {
         video.addEventListener('canplay', tryAutoplay, { once: true });
     }
-}//processVideo()
+}
 
 function getVideoElement() {
-    // Prioritize fullscreen video
     if (document.fullscreenElement?.querySelector('video')) {
         return document.fullscreenElement.querySelector('video');
     }
     return document.querySelector('video');
-}//getVideoElement()
+}
 
 function togglePlayback() {
     const video = getVideoElement();
@@ -197,45 +192,53 @@ function togglePlayback() {
     } catch (e) {
         console.warn("Playback toggle failed:", e);
     }
-}//togglePlayback()
+}
 
 function init() {
     console.log(MESSAGES.INIT_START);
 	domain = getDomain();
 
+
 	const playbackHandler = (event) => {
-        // For keyboard events
-        if (event.type === 'keydown' && event.code === CONFIG.CONTROL_KEY) {
-            event.preventDefault();
-            event.stopPropagation(); // Prevent Netflix handlers from interfering
-            togglePlayback();
-        }
-        // For mouse events
-        else if (event.type === 'click' && event.button === 0) {
-			togglePlayback();
-        }
-    };
+		// For keyboard events
+		if(getDomain() == "WATCH"){
+			if (event.type === 'keydown' && event.code === CONFIG.CONTROL_KEY) {
+				event.preventDefault();
+				event.stopPropagation(); // Prevent Netflix handlers from interfering
+				togglePlayback();
+			}
+			// For mouse events
+			else if (event.type === 'click' && event.button === 0) {
+				togglePlayback();
+			}}
+	};
 
-    window.addEventListener('keydown', playbackHandler, true);
-    window.addEventListener('click', playbackHandler);
+	window.addEventListener('keydown', playbackHandler, true);
+	window.addEventListener('click', playbackHandler);
 
-    cleanupCallbacks.push(() => {
-        window.removeEventListener('keydown', playbackHandler, true); 
-        window.removeEventListener('click', playbackHandler);
-    });
+	cleanupCallbacks.push(() => {
+		window.removeEventListener('keydown', playbackHandler, true); 
+		window.removeEventListener('click', playbackHandler);
+	});
 
 
-    // Observer for new video elements
-    const videoObserver = new MutationObserver(mutations => {
-        mutations.forEach(mutation => {
-            mutation.addedNodes.forEach(node => {
-                if (node.tagName === 'VIDEO') processVideo(node);
-                if (node.querySelectorAll) node.querySelectorAll('video').forEach(processVideo);
-            });
-        });
-    });
-    videoObserver.observe(document.body, { childList: true, subtree: true });
-    cleanupCallbacks.push(() => videoObserver.disconnect());
+	// Observer for new video elements
+	const videoObserver = new MutationObserver(mutations => {
+		mutations.forEach(mutation => {
+			mutation.addedNodes.forEach(node => {
+				if (node.tagName === 'VIDEO') processVideo(node);
+				if (node.querySelectorAll) node.querySelectorAll('video').forEach(processVideo);
+			});
+		});
+	});
+	videoObserver.observe(document.body, { childList: true, subtree: true });
+	cleanupCallbacks.push(() => videoObserver.disconnect());
+
+	// Initial attempt after small delay
+	setTimeout(() => {
+		tryUnlock();
+		document.querySelectorAll('video').forEach(processVideo);
+	}, CONFIG.INITIAL_DELAY);
 
     // Observer for lock overlay changes (secondary safeguard)
     const lockObserver = new MutationObserver(() => {
@@ -243,14 +246,7 @@ function init() {
     });
     lockObserver.observe(document.body, { childList: true, subtree: true });
     cleanupCallbacks.push(() => lockObserver.disconnect());
-
-    // Initial attempt after small delay
-    setTimeout(() => {
-        tryUnlock();
-        document.querySelectorAll('video').forEach(processVideo);
-    }, CONFIG.INITIAL_DELAY);
-}//init()
-
+}
 	
 window.addEventListener('beforeunload', () => {
 	cleanupCallbacks.forEach(fn => fn());
@@ -258,11 +254,6 @@ window.addEventListener('beforeunload', () => {
     clearTimeout(autoplayTimeout);
   });
 
-const isProfileScreen = document.querySelectorAll(`.${SELECTORS.PROFILE_CHOICE}`).length > 0;
-
-/*if (isProfileScreen) {
-console.log(MESSAGES.PROFILE_CHOICE_SCREEN);
-} else */
 if (document.readyState === 'complete') {
 init();
 } else {
