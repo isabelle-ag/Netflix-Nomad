@@ -3,6 +3,8 @@
 [![Firefox Add-on](https://img.shields.io/amo/v/netflix-nomad?label=Firefox)](https://addons.mozilla.org/firefox/addon/netflix-nomad/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
+> Awaiting approval for app to be published, in the meantime you can install it [manually](#manual-installation).
+
 > Bypass Netflix's “Not part of this household” restrictions and keep playback controls functional.
 
 ---
@@ -41,8 +43,19 @@
 ---
 
 ## Installation
-Install from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/netflix-nomad/)
-     
+
+### Firefox Add-ons (Recommended)
+1. Install directly with [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/netflix-nomad/)
+2. The extension will automatically update when new versions are released
+
+### Manual Installation
+1. Download file netflix-nomad1.0.zip
+2. Navigate to `about:debugging#/runtime/this-firefox` on Firefox
+3. Click **`Load Temporary Add-on`** and either:  
+	- Select the zip file, Or,
+	- Select any file from the extracted extension folder (typically `manifest.json`)
+> Note: Temporary add-ons remain installed until you restart Firefox. For permanent installation, consider using the Firefox Add-ons store version.
+
 > Currently tested only in Firefox. Chrome build requires further testing.
 
 ---
