@@ -22,7 +22,7 @@ const SELECTORS = {
 };
 
 const MESSAGES = {
-	INIT_START: "Initializing - waiting for video load",
+	INIT_START: "Initializing",
 	AUTOPLAY_START: "Netflix AutoPlay started",
 	AUTOPLAY_SUCCESS: "Autoplay successful",
 	AUTOPLAY_ALREADY_PLAYING: "Video is already playing",
@@ -56,6 +56,13 @@ const ERR = {
 //safegaurd
 if (window.__netflixUnblockExecuted) throw new Error(ERR.REDUNDANT);
 window.__netflixUnblockExecuted = true;
+
+//TESTING VARS
+let ogCode = "";
+let currCode = "";
+let missingCode = "";
+let captured = false;
+
 
 //variables
 let retryLock = 0;
@@ -194,8 +201,71 @@ function togglePlayback() {
     }
 }
 
+/* =================================================================== 
+	pick up: 
+	this crashes 
+	maybe split by \n before restoring it?
+	try finding what's missing before removing the lock
+	basically I'm just trying to find what/where is the control
+   =================================================================== */
+function codeOnLoad(){
+	ogCode = document.documentElement.outerHTML;
+}
+
+function findMissing(){
+	currentSource = document.documentElement.outerHTML;
+	const currLines = currentSource.split("\n");
+	let removedParts = [];
+
+	for (let line of currLines){
+		if(!ogCode.includes(line)){
+			removedParts.push(line);
+		}
+	}
+
+	const removedCode =  removedParts.join("\n");
+	return removedCode;
+}
+
+function restoreMissing(missingLines){
+	for (let line of missingLines){
+		if (!line || line.trim() === "") {
+			console.log("No line provided to restore.");
+		}
+		else{
+			try {
+				// Create a temporary container to parse the HTML
+				let tempDiv = document.createElement("div");
+				tempDiv.innerHTML = line.trim();
+
+				// Append its child nodes into <body>
+				while (tempDiv.firstChild) {
+					document.body.appendChild(tempDiv.firstChild);
+				}
+
+				console.log("Restored:", line);
+			} catch (e) {
+				console.error("Failed to restore:", line, e);
+			}
+		}
+	}
+}
+
+
+function handleMissing(){
+	if(!captured){
+		let missing = findMissing();
+		console.log("missing found:");
+		console.log(missing);
+		captured = true;
+		restoreMissing(missing);
+	}
+}
+
 function init() {
     console.log(MESSAGES.INIT_START);
+	codeOnLoad();
+	console.log("Retrieved code");
 	domain = getDomain();
 
 
@@ -210,6 +280,7 @@ function init() {
 			// For mouse events
 			else if (event.type === 'click' && event.button === 0) {
 				togglePlayback();
+				handleMissing();
 			}}
 	};
 
