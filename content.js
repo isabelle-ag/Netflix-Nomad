@@ -195,6 +195,7 @@ function togglePlayback() {
 
 function init() {
     console.log(MESSAGES.INIT_START);
+	domain = getDomain()
 
 	const playbackHandler = (event) => {
 		// For keyboard events
