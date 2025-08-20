@@ -1,6 +1,7 @@
 # Netflix Nomad
 
 [![Firefox Add-on](https://img.shields.io/amo/v/netflix-nomad?label=Firefox)](https://addons.mozilla.org/firefox/addon/netflix-nomad/)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ff813f?logo=buy-me-a-coffee&logoColor=white)](https://www.buymeacoffee.com/isabelle.ag)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 > Awaiting approval for app to be published, in the meantime you can install it [manually](#manual-installation).
@@ -105,7 +106,8 @@ If you find this extension useful, please consider supporting its development:
 
 Your support helps fund:  
 - Chrome/Edge and Safari browser support  
-- Restored native-style video controls  
+- Restored native-style video controls
+- An extension UI  
 - Develop mobile browser compatibility  
 - Maintain compatibility as Netflix updates
 
