@@ -101,7 +101,7 @@ Netflix Nomad restores intuitive controls so playback remains fully usable even 
 ## Support Development
 If you find this extension useful, please consider supporting its development:  
 
-[☕ Buy Me a Coffee](https://www.buymeacoffee.com/yourprofile)  
+[☕ Buy Me a Coffee](https://www.buymeacoffee.com/isabelle.ag)  
 
 Your support helps fund:  
 - Chrome/Edge and Safari browser support  

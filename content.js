@@ -7,7 +7,7 @@ const IDENTIFIERS = {
 
 const CONFIG = {
 	MAX_RETRIES: 20,
-	INITIAL_DELAY: 3000, 
+	INITIAL_DELAY: 2000, 
 	RETRY_DELAY: 1000,    
 	CONTROL_KEY: 'Space',  
 	MAX_ELEMENTS: 10,
@@ -139,7 +139,7 @@ async function tryAutoplay() {
 				console.log(MESSAGES.AUTOPLAY_RESUME);
 				video.play();
 			}
-		}, 1000);
+		}, CONFIG.INITIAL_DELAY);
 
     } catch (e) {
         console.log(MESSAGES.AUTOPLAY_FAILED, e.message);
