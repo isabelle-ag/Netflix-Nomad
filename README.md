@@ -50,11 +50,12 @@
 2. The extension will automatically update when new versions are released
 
 ### Manual Installation
-1. Download file netflix-nomad1.0.zip
+1. Download the `netflix-nomad-v*.zip` from the latest [release](https://github.com/isabelle-ag/Netflix-Nomad/releases/latest)
 2. Navigate to `about:debugging#/runtime/this-firefox` on Firefox
-3. Click **`Load Temporary Add-on`** and either:  
-	- Select the zip file, Or,
-	- Select any file from the extracted extension folder (typically `manifest.json`)
+3. Click **`Load Temporary Add-on`**  
+4. Select the downloaded ZIP file
+   - *Alternatively: Extract the ZIP and select any file from the folder (like `manifest.json`)*
+
 > Note: Temporary add-ons remain installed until you restart Firefox. For permanent installation, consider using the Firefox Add-ons store version.
 
 > Currently tested only in Firefox. Chrome build requires further testing.
