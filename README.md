@@ -4,7 +4,7 @@
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ff813f?logo=buy-me-a-coffee&logoColor=white)](https://www.buymeacoffee.com/isabelle.ag)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-> Awaiting approval for app to be published, in the meantime you can install it [manually](#manual-installation).
+>The official Firefox Add-ons store listing is pending review. In the meantime, you can install it [manually](#manual-installation).
 
 > Bypass Netflix's “Not part of this household” restrictions and keep playback controls functional.
 
@@ -76,7 +76,7 @@ Netflix Nomad bypasses household verification through **non-invasive DOM manipul
 - **Safe:** Never interacts with authentication or billing systems
 - **Resilient:** Functions independently of Netflix backend changes
 
-*Unlike network-level solutions, this DOM-focused approach preserves Netflix's native functionality while specifically targeting only the restriction overlays.*
+*Unlike network-level solutions, this DOM-focused approach preserves Netflix's native functionality while specifically targeting only the restriction overlays*
 
 ---
 
