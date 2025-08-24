@@ -1,13 +1,13 @@
 {
 	"manifest_version": 2,
 	"name": "Netflix Nomad",
-	"version": "1.0",
+	"version": "1.1",
   
 	"description": "Bypasses household lock for netflix",
   
 	"icons": {
-	  "48": "./NN.png",
-	  "96": "./NN.png"
+	  "48": "./NN-48.png",
+	  "96": "./NN-96.png"
 	},
   
 	"content_scripts": [
