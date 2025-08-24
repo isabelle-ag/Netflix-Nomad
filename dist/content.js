@@ -1,8 +1,58 @@
-import { SELECTORS } from "./selectors.js";
-import { IDENTIFIERS } from "./selectors.js";
-import { CONFIG } from "./config.js";
-import{ MESSAGES } from "./messages.js";
-import { ERR } from "./messages.js";
+// ----- constants -----
+const debug = false;
+
+const IDENTIFIERS = {
+	WATCH: "netflix.com/watch",   
+	LOCK_MSG: "Your device isn\’t part of the Netflix Household for this account",
+	TARGET_CLASS: "nf-modal interstitial-full-screen",
+};
+
+const CONFIG = {
+	MAX_RETRIES: 20,
+	INITIAL_DELAY: 2000, 
+	RETRY_DELAY: 1000,    
+	CONTROL_KEY: 'Space',  
+	MAX_ELEMENTS: 10,
+};
+
+const SELECTORS = {
+	VIDEO: "video",
+	FULLSCREEN_ELEMENT: () => document.fullscreenElement,
+	BLOCKING_ELEMENTS: "body *:not(:fullscreen)",
+	PROFILE_CHOICE: "profile-gate-label"
+};
+
+const MESSAGES = {
+	INIT_START: "Initializing",
+	AUTOPLAY_START: "Netflix AutoPlay started",
+	AUTOPLAY_SUCCESS: "Autoplay successful",
+	AUTOPLAY_ALREADY_PLAYING: "Video is already playing",
+	AUTOPLAY_FAILED: (reason) => `Autoplay attempt failed: ${reason}`,
+	AUTOPLAY_RESUME: "Resuming autoplay after netflix paused it",
+	LOAD_FAILED: "Load attempt failed",
+	RETRY: (count, max, delay) => 
+	  `Retrying in ${delay}ms (attempt ${count}/${max})`,
+	RETRY_MAX: "Max retries reached, refreshing page",
+	ELEMENT_NOT_FOUND: "Lock detected but cannot be remove",
+	ELEMENT_REMOVED: "Removed locking element",
+	PLAYBACK_STARTED: "Starting playback...",
+	PLAYBACK_FAILED: (err) => `Playback failed: ${err}`,
+	KEY_PLAY: (key) => key === "Space"
+    ? "Video played via spacebar"
+    : `Video played via ${key} key`,
+	KEY_PAUSE: (key) => key === "Space"
+    ? "Video paused via spacebar"
+    : `Video paused via ${key} key`,
+	UNLOCK_FAILED: (count) => `removeLock() did not remove the correct element. Elements removed: ${count++})\nTrying again`,
+	PROFILE_CHOICE_SCREEN: "Skipping init: profile choice screen",
+	PREFIX: "[Netflix Nomad]"
+};
+
+const ERR = {
+	PLAYER_ERROR: 'No player sessions available',
+	NOT_READY: 'Player/video not ready',
+	REDUNDANT: "Script already loaded"
+};
 
 //safegaurd
 if (window.__netflixUnblockExecuted) throw new Error(ERR.REDUNDANT);
@@ -16,7 +66,6 @@ let autoplayDone = false;
 let domain;
 const cleanupCallbacks = [];
 let unlockTimeout, autoplayTimeout;
-const debug = false;
 
 function getDomain() {
 	const url = window.location.href;
