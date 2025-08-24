@@ -1,56 +1,8 @@
-// ----- constants -----
-const IDENTIFIERS = {
-	WATCH: "netflix.com/watch",   
-	LOCK_MSG: "Your device isn\’t part of the Netflix Household for this account",
-	TARGET_CLASS: "nf-modal interstitial-full-screen",
-};
-
-const CONFIG = {
-	MAX_RETRIES: 20,
-	INITIAL_DELAY: 2000, 
-	RETRY_DELAY: 1000,    
-	CONTROL_KEY: 'Space',  
-	MAX_ELEMENTS: 10,
-};
-
-const SELECTORS = {
-	VIDEO: "video",
-	FULLSCREEN_ELEMENT: () => document.fullscreenElement,
-	BLOCKING_ELEMENTS: "body *:not(:fullscreen)",
-	PROFILE_CHOICE: "profile-gate-label"
-};
-
-const MESSAGES = {
-	INIT_START: "Initializing",
-	AUTOPLAY_START: "Netflix AutoPlay started",
-	AUTOPLAY_SUCCESS: "Autoplay successful",
-	AUTOPLAY_ALREADY_PLAYING: "Video is already playing",
-	AUTOPLAY_FAILED: (reason) => `Autoplay attempt failed: ${reason}`,
-	AUTOPLAY_RESUME: "Resuming autoplay after netflix paused it",
-	LOAD_FAILED: "Load attempt failed",
-	RETRY: (count, max, delay) => 
-	  `Retrying in ${delay}ms (attempt ${count}/${max})`,
-	RETRY_MAX: "Max retries reached, refreshing page",
-	ELEMENT_NOT_FOUND: "Lock detected but cannot be remove",
-	ELEMENT_REMOVED: "Removed locking element",
-	PLAYBACK_STARTED: "Starting playback...",
-	PLAYBACK_FAILED: (err) => `Playback failed: ${err}`,
-	KEY_PLAY: (key) => key === "Space"
-    ? "Video played via spacebar"
-    : `Video played via ${key} key`,
-	KEY_PAUSE: (key) => key === "Space"
-    ? "Video paused via spacebar"
-    : `Video paused via ${key} key`,
-	UNLOCK_FAILED: (count) => `removeLock() did not remove the correct element. Elements removed: ${count++})\nTrying again`,
-	PROFILE_CHOICE_SCREEN: "Skipping init: profile choice screen",
-	
-};
-
-const ERR = {
-	PLAYER_ERROR: 'No player sessions available',
-	NOT_READY: 'Player/video not ready',
-	REDUNDANT: "Script already loaded"
-};
+import { SELECTORS } from "./selectors.js";
+import { IDENTIFIERS } from "./selectors.js";
+import { CONFIG } from "./config.js";
+import{ MESSAGES } from "./messages.js";
+import { ERR } from "./messages.js";
 
 //safegaurd
 if (window.__netflixUnblockExecuted) throw new Error(ERR.REDUNDANT);
@@ -64,6 +16,7 @@ let autoplayDone = false;
 let domain;
 const cleanupCallbacks = [];
 let unlockTimeout, autoplayTimeout;
+const debug = false;
 
 function getDomain() {
 	const url = window.location.href;
@@ -86,7 +39,7 @@ function removeLock() {
 		if ((style.position === 'fixed' || style.position === 'sticky') && 
 			!elements[i].contains(fullscreenElement)) {
 			elements[i].remove();
-			console.log(MESSAGES.ELEMENT_REMOVED);
+			if (debug) console.log(MESSAGES.PREFIX, MESSAGES.ELEMENT_REMOVED);
 			elemCount++;
 			removedAny = true;
 		}
@@ -136,13 +89,13 @@ async function tryAutoplay() {
 		autoplayDone = true;
 		setTimeout(() => {
 			if (video.paused) {
-				console.log(MESSAGES.AUTOPLAY_RESUME);
+				if (debug) console.log(MESSAGES.PREFIX, MESSAGES.AUTOPLAY_RESUME);
 				video.play();
 			}
 		}, CONFIG.INITIAL_DELAY);
 
     } catch (e) {
-        console.log(MESSAGES.AUTOPLAY_FAILED, e.message);
+        if (debug) console.log(MESSAGES.PREFIX, MESSAGES.AUTOPLAY_FAILED, e.message);
         scheduleRetry();
         return;
     }
@@ -153,7 +106,7 @@ function scheduleRetry() {
 	const video = document.querySelector('video');
 	if(video.paused){
 		if(retryPlay++ < CONFIG.MAX_RETRIES){
-			console.log(MESSAGES.RETRY(retryPlay, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY));
+			if (debug) console.log(MESSAGES.PREFIX, MESSAGES.RETRY(retryPlay, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY));
 			autoplayTimeout = setTimeout(tryAutoplay, CONFIG.RETRY_DELAY);
 		}
 	}
@@ -183,10 +136,10 @@ function togglePlayback() {
     try {
         if (video.paused) {
             video.play();
-            console.log(MESSAGES.KEY_PLAY);
+            if (debug) console.log(MESSAGES.PREFIX, MESSAGES.KEY_PLAY);
         } else {
             video.pause();
-            console.log(MESSAGES.KEY_PAUSE);
+            if (debug) console.log(MESSAGES.PREFIX, MESSAGES.KEY_PAUSE);
         }
     } catch (e) {
         console.warn("Playback toggle failed:", e);
@@ -194,7 +147,7 @@ function togglePlayback() {
 }
 
 function init() {
-    console.log(MESSAGES.INIT_START);
+    console.log(MESSAGES.PREFIX, MESSAGES.INIT_START);
 	domain = getDomain()
 
 	const playbackHandler = (event) => {

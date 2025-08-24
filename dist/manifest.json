@@ -6,8 +6,8 @@
 	"description": "Bypasses household lock for netflix",
   
 	"icons": {
-	  "48": "./unlock-48.png",
-	  "96": "./unlock-96.png"
+	  "48": "./NN.png",
+	  "96": "./NN.png"
 	},
   
 	"content_scripts": [
