@@ -1,4 +1,6 @@
 // ----- constants -----
+const debug = true;
+
 const IDENTIFIERS = {
 	WATCH: "netflix.com/watch",   
 	LOCK_MSG: "Your device isn\’t part of the Netflix Household for this account",
@@ -43,7 +45,7 @@ const MESSAGES = {
     : `Video paused via ${key} key`,
 	UNLOCK_FAILED: (count) => `removeLock() did not remove the correct element. Elements removed: ${count++})\nTrying again`,
 	PROFILE_CHOICE_SCREEN: "Skipping init: profile choice screen",
-	
+	PREFIX: "[Netflix Nomad]"
 };
 
 const ERR = {
@@ -86,7 +88,7 @@ function removeLock() {
 		if ((style.position === 'fixed' || style.position === 'sticky') && 
 			!elements[i].contains(fullscreenElement)) {
 			elements[i].remove();
-			console.log(MESSAGES.ELEMENT_REMOVED);
+			if (debug) console.log(MESSAGES.PREFIX, MESSAGES.ELEMENT_REMOVED);
 			elemCount++;
 			removedAny = true;
 		}
@@ -136,13 +138,13 @@ async function tryAutoplay() {
 		autoplayDone = true;
 		setTimeout(() => {
 			if (video.paused) {
-				console.log(MESSAGES.AUTOPLAY_RESUME);
+				if (debug) console.log(MESSAGES.PREFIX, MESSAGES.AUTOPLAY_RESUME);
 				video.play();
 			}
 		}, CONFIG.INITIAL_DELAY);
 
     } catch (e) {
-        console.log(MESSAGES.AUTOPLAY_FAILED, e.message);
+        if (debug) console.log(MESSAGES.PREFIX, MESSAGES.AUTOPLAY_FAILED, e.message);
         scheduleRetry();
         return;
     }
@@ -153,7 +155,7 @@ function scheduleRetry() {
 	const video = document.querySelector('video');
 	if(video.paused){
 		if(retryPlay++ < CONFIG.MAX_RETRIES){
-			console.log(MESSAGES.RETRY(retryPlay, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY));
+			if (debug) console.log(MESSAGES.PREFIX, MESSAGES.RETRY(retryPlay, CONFIG.MAX_RETRIES, CONFIG.RETRY_DELAY));
 			autoplayTimeout = setTimeout(tryAutoplay, CONFIG.RETRY_DELAY);
 		}
 	}
@@ -183,10 +185,10 @@ function togglePlayback() {
     try {
         if (video.paused) {
             video.play();
-            console.log(MESSAGES.KEY_PLAY);
+            if (debug) console.log(MESSAGES.PREFIX, MESSAGES.KEY_PLAY);
         } else {
             video.pause();
-            console.log(MESSAGES.KEY_PAUSE);
+            if (debug) console.log(MESSAGES.PREFIX, MESSAGES.KEY_PAUSE);
         }
     } catch (e) {
         console.warn("Playback toggle failed:", e);
@@ -194,7 +196,7 @@ function togglePlayback() {
 }
 
 function init() {
-    console.log(MESSAGES.INIT_START);
+    console.log(MESSAGES.PREFIX, MESSAGES.INIT_START);
 	domain = getDomain()
 
 	const playbackHandler = (event) => {
