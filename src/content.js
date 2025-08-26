@@ -13,6 +13,7 @@ const CONFIG = {
 	RETRY_DELAY: 1000,    
 	CONTROL_KEY: 'Space',  
 	MAX_ELEMENTS: 10,
+	ENABLED: true
 };
 
 const SELECTORS = {
@@ -62,6 +63,7 @@ window.__netflixUnblockExecuted = true;
 let retryLock = 0;
 let retryPlay = 0;
 let elemCount = 0;
+let CONTROL_KEY = 'Space';
 let autoplayDone = false;
 let domain;
 const cleanupCallbacks = [];
@@ -195,6 +197,21 @@ function togglePlayback() {
     }
 }
 
+browser.storage.sync.get(Object.keys(CONFIG)).then((saved) => {
+	Object.assign(CONFIG, saved);
+  });
+  
+  // Keep CONFIG updated live if user changes settings from popup
+  browser.storage.onChanged.addListener((changes, area) => {
+	if (area === "sync") {
+	  for (const [key, { newValue }] of Object.entries(changes)) {
+		if (key in CONFIG) {
+		  CONFIG[key] = newValue;
+		}
+	  }
+	}
+  });
+  
 function init() {
     console.log(MESSAGES.PREFIX, MESSAGES.INIT_START);
 	domain = getDomain()

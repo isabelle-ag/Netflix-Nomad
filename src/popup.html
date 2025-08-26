@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+  <title>Netflix Nomad Settings</title>
+</head>
+<body>
+  <div class="header">
+    <img src="./NN-48.png" alt="NN Icon">
+   <h3 style="text-align: center;">Netflix Nomad</h3>
+  </div>
+  <hr>
+
+
+  <div class="toggle-container">
+    <label class="switch">
+      <input id="enabledToggle" type="checkbox">
+      <span class="slider round"></span>
+    </label>
+    <label class="status-label">Status: <span id="enabledStatus">—</span></label>
+  </div>
+
+<label for="controlKey" style="margin-bottom:10px">Play/Pause Key:</label>
+<input id="controlKey" type="text" readonly placeholder="Press a key..." />
+<p id="controlKeyLabel"></p>
+
+<script src="popup.js"></script>
+
+
+</body>
+</html>
