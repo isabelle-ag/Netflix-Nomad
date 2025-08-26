@@ -33,10 +33,9 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
       }
 
       // Initialize UI
-      controlKeyInput.value = config.CONTROL_KEY;
-      controlKeyLabel.textContent = config.CONTROL_KEY;
-      enabledCheckbox.checked = config.ENABLED;
-      updateEnabledText(config.ENABLED);
+      controlKeyLabel.textContent = formatKeyDisplay(config.CONTROL_KEY);
+  	  enabledCheckbox.checked = config.ENABLED;
+ 	  updateEnabledText(config.ENABLED);
 
       // Set version number
       versionLabel.textContent = `v${browserAPI.runtime.getManifest().version}`;
@@ -62,11 +61,12 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
         if (e.key === " ") {
           keyValue = "Space";
         }
-        
-        controlKeyInput.value = keyValue;
+    
+		const displayValue = formatKeyDisplay(keyValue);
+		//controlKeyInput.value = displayValue;
         controlKeyInput.classList.remove('recording');
         controlKeyInput.placeholder = 'Click to change key';
-        controlKeyLabel.textContent = keyValue;
+        controlKeyLabel.textContent = displayValue;
         
         await browserAPI.storage.local.set({ CONTROL_KEY: keyValue });
         showSaveMessage();
@@ -77,10 +77,10 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
         this.placeholder = 'Click here and press a key';
       });
 
-      // Reset key to default
-      resetKeyButton.addEventListener('click', async () => {
-        controlKeyInput.value = defaults.CONTROL_KEY;
-        controlKeyLabel.textContent = defaults.CONTROL_KEY;
+	  resetKeyButton.addEventListener('click', async () => {
+        const displayValue = formatKeyDisplay(defaults.CONTROL_KEY);
+        //controlKeyInput.value = displayValue;
+        controlKeyLabel.textContent = displayValue;
         
         await browserAPI.storage.local.set({ CONTROL_KEY: defaults.CONTROL_KEY });
         showSaveMessage();

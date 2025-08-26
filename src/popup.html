@@ -15,7 +15,6 @@
     <!-- Enabled toggle -->
     <div class="toggle-container">
       <label class="toggle-label" title="Enable or disable Netflix Nomad">
-        <span>Extension Status</span>
         <label class="switch">
           <input id="enabledToggle" type="checkbox">
           <span class="slider"></span>
@@ -23,15 +22,12 @@
       </label>
       <span class="status-label" id="enabledStatus">—</span>
     </div>
-    
-    <hr>
 
     <!-- Play/Pause key -->
     <div class="control-key-container">
-      <label for="controlKey">Play/Pause Key Binding</label>
+      <label class="control-key-label">Play/Pause Key Binding</label>
       <div class="key-input-container">
-        <input id="controlKey" type="text" readonly placeholder="Click here and press a key" 
-               title="Click and press the key you want to use">
+        <input id="controlKey" type="text" readonly placeholder="Click and press a key">
         <button class="reset-btn" id="resetKey" title="Reset to default key">Reset</button>
       </div>
       <p class="hint">Current key: <span id="controlKeyLabel">—</span></p>

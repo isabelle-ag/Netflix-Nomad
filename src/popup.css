@@ -73,10 +73,6 @@
       cursor: pointer;
     }
 
-    .toggle-label span {
-      font-weight: 500;
-    }
-
     .switch {
       position: relative;
       display: inline-block;
