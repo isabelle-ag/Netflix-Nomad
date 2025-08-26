@@ -26,23 +26,31 @@
     }
 
     .header {
-      display: flex;
+      display: grid;
+      grid-template-columns: 32px 1fr;
       align-items: center;
-      justify-content: center;
-      gap: 10px;
       margin-bottom: 16px;
+      position: relative;
     }
-
+    
     .header img {
       width: 32px;
       height: 32px;
+      grid-column: 1;
+      margin-left: 30px;
     }
-
+    
     .header h3 {
       font-size: 18px;
       font-weight: 600;
       color: var(--text-primary);
+      grid-column: 2;
+      text-align: center;
+      margin: 0;
+      position: relative;
+      left: -16px; /* Compensate for the image width */
     }
+    
 
     hr {
       border: none;
@@ -71,6 +79,10 @@
       align-items: center;
       gap: 10px;
       cursor: pointer;
+    }
+
+    .toggle-text {
+      font-weight: 500;
     }
 
     .switch {
