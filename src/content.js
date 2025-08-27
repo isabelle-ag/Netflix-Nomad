@@ -47,7 +47,8 @@ const MESSAGES = {
     : `Video paused via ${key} key`,
 	UNLOCK_FAILED: (count) => `removeLock() did not remove the correct element. Elements removed: ${count++})\nTrying again`,
 	PROFILE_CHOICE_SCREEN: "Skipping init: profile choice screen",
-	PREFIX: "[Netflix Nomad]"
+	PREFIX: "[Netflix Nomad]",
+	EXTENSION_ENABLED: "Extension enabled, attempting to remove lock"
 };
 
 const ERR = {
@@ -66,8 +67,8 @@ let retryPlay = 0;
 let elemCount = 0;
 let CONTROL_KEY = 'Space';
 let autoplayDone = false;
-let domain;
-let unlockTimeout, autoplayTimeout;
+let domain, unlockTimeout, autoplayTimeout;
+let isInitialized = false;
 
 /* =============== Body =============== */
 
@@ -77,31 +78,52 @@ window.__netflixUnblockExecuted = true;
 
 //get config from local storage
 browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]).then((result) => {
-	if (result.CONTROL_KEY) CONFIG.CONTROL_KEY = result.CONTROL_KEY;
-	if (result.ENABLED !== undefined) CONFIG.ENABLED = result.ENABLED;
-  });
+    if (result.CONTROL_KEY) CONFIG.CONTROL_KEY = result.CONTROL_KEY;
+    if (result.ENABLED !== undefined) CONFIG.ENABLED = result.ENABLED;
+    
+    // Initialize if enabled
+    if (CONFIG.ENABLED) {
+        init();
+    }
+});
 
-  // browser.storage.sync.get(Object.keys(CONFIG)).then((saved) => {
-// 	Object.assign(CONFIG, saved);
-//   });
 
 /* =============== Listeners =============== */
   
-//Update config
-  browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
-	if (request.action === "updateConfig") {
-	  if (request.config.CONTROL_KEY) {
-		CONFIG.CONTROL_KEY = request.config.CONTROL_KEY;
-	  }
-	  if (request.config.ENABLED !== undefined) {
-		CONFIG.ENABLED = request.config.ENABLED;
-	  }
+//update config
+browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+	if (debug) console.log("Updating config");
+    if (request.action === "updateConfig") {
+        if (request.config.CONTROL_KEY) {
+            CONFIG.CONTROL_KEY = request.config.CONTROL_KEY;
+        }
+        if (request.config.ENABLED !== undefined) {
+            const wasEnabled = CONFIG.ENABLED;
+            CONFIG.ENABLED = request.config.ENABLED;
+            
+            // If extension was just enabled, initialize or try to remove lock
+            if (CONFIG.ENABLED && !wasEnabled) {
+                if (debug) console.log(MESSAGES.PREFIX, MESSAGES.EXTENSION_ENABLED);
+                
+                if (!isInitialized) {
+                    // Initialize if not already done
+                    init();
+                } else {
+                    // Already initialized, just try to remove lock
+                    tryUnlock();
+                    
+                    // Also try to process any videos
+                    document.querySelectorAll('video').forEach(processVideo);
+                }
+            }
+        }
 
-	  initializeKeyListener();
-	  
-	  sendResponse({status: "success"});
-	}
-  });
+        initializeKeyListener();
+        
+        sendResponse({status: "success"});
+    }
+});
+  
 
   window.addEventListener('beforeunload', () => {
 	cleanupCallbacks.forEach(fn => fn());
@@ -149,6 +171,7 @@ function removeLock() {
 }
 
 function tryUnlock() {
+	if(!CONFIG.ENABLED) return;
 	if (!isLocked()) {
 		retryLock = 0;
 		elemCount = 0;
@@ -180,7 +203,8 @@ function tryUnlock() {
 }
 
 async function tryAutoplay() {
-    if (autoplayDone) return;
+    if(!CONFIG.ENABLED) return;
+	if (autoplayDone) return;
 
     const video = document.querySelector("video");
     if (!video) return;
@@ -214,6 +238,7 @@ function scheduleRetry() {
 }
 
 function processVideo(video) {
+	if(!CONFIG.ENABLED) return;
     if (autoplayDone || domain !== "WATCH") return;
 
     if (video.readyState >= 3) {
@@ -231,7 +256,8 @@ function getVideoElement() {
 }
 
 function togglePlayback() {
-    const video = getVideoElement();
+    if(!CONFIG.ENABLED) return;
+	const video = getVideoElement();
     if (!video) return;
     
     try {
@@ -249,6 +275,7 @@ function togglePlayback() {
 
 const playbackHandler = (event) => {
 	// For keyboard events
+	if(!CONFIG.ENABLED) return;
 	if(getDomain() == ("WATCH" /*|| "WATCH_TEST"*/)){
 		if (event.type === 'keydown' && event.code === CONFIG.CONTROL_KEY) {
 			event.preventDefault();
@@ -279,7 +306,9 @@ const playbackHandler = (event) => {
   
 /* =============== Init =============== */
 function init() {
-    console.log(MESSAGES.PREFIX, MESSAGES.INIT_START);
+	if(isInitialized) return;
+
+	console.log(MESSAGES.PREFIX, MESSAGES.INIT_START);
 	domain = getDomain()
 
 	initializeKeyListener();
@@ -318,8 +347,10 @@ function init() {
     cleanupCallbacks.push(() => lockObserver.disconnect());
 }
 
-if (document.readyState === 'complete') {
-init();
-} else {
-window.addEventListener('load', init);
+if (CONFIG.ENABLED) {
+    if (document.readyState === 'complete') {
+        init();
+    } else {
+        window.addEventListener('load', init);
+    }
 }

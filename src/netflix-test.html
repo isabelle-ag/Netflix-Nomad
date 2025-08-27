@@ -17,6 +17,7 @@
             color: #fff;
             line-height: 1.5;
             overflow: hidden;
+            position: relative;
         }
         
         .nf-modal.interstitial-full-screen {
@@ -145,9 +146,22 @@
             height: 100%;
             background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%);
         }
+        
+        /* Hidden element to ensure lock message is in body text */
+        .hidden-lock-message {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body>
+    <!-- Hidden element to ensure the lock message is in body.innerText -->
+   <!--  <div class="hidden-lock-message">Your device isn&#8217;t part of the Netflix Household for this account</div> -->
+
     <!-- Simulated Netflix video background -->
     <div class="video-container">
         <video autoplay muted loop>
@@ -165,7 +179,7 @@
                 </svg>
             </div>
             <h1>Netflix Household</h1>
-            <p>Your device isn't part of the Netflix Household for this account. You can watch Netflix on this device by updating your household.</p>
+            <p>Your device isn&#8217;t part of the Netflix Household for this account. You can watch Netflix on this device by updating your household.</p>
             <div class="button-container">
                 <button class="secondary" onclick="updateHousehold()">Update Household</button>
                 <button onclick="dismissModal()">Maybe Later</button>
@@ -181,14 +195,20 @@
             <button onclick="hideLock()">Hide Lock Modal</button>
         </div>
         <div class="status" id="status">Status: Lock visible</div>
+        <div class="status" id="detectionStatus">Detection: document.body.innerText.includes() = <span id="detectionResult">true</span></div>
+        <div class="status" id="exactMatchStatus">Exact match: <span id="exactMatchResult">true</span></div>
     </div>
 
     <script>
+        // The exact lock message from Netflix
+        //const LOCK_MESSAGE = "Your device isn\u2019t part of the Netflix Household for this account";
+        
         // Function to show the lock modal
         function showLock() {
             document.getElementById('lockModal').style.display = 'flex';
             document.getElementById('status').textContent = 'Status: Lock visible';
             document.getElementById('status').className = 'status';
+            // updateDetectionStatus();
         }
         
         // Function to hide the lock modal
@@ -196,7 +216,28 @@
             document.getElementById('lockModal').style.display = 'none';
             document.getElementById('status').textContent = 'Status: Lock removed';
             document.getElementById('status').className = 'status success';
+            //updateDetectionStatus();
         }
+        
+        // Update detection status
+        // function updateDetectionStatus() {
+        //     const bodyText = document.body.innerText;
+        //     const isDetected = bodyText.includes(LOCK_MESSAGE);
+            
+        //     document.getElementById('detectionResult').textContent = isDetected;
+        //     document.getElementById('detectionResult').style.color = isDetected ? '#46d156' : '#e50914';
+            
+        //     // Check for exact match
+        //     const exactMatch = bodyText.indexOf(LOCK_MESSAGE) !== -1;
+        //     document.getElementById('exactMatchResult').textContent = exactMatch;
+        //     document.getElementById('exactMatchResult').style.color = exactMatch ? '#46d156' : '#e50914';
+            
+        //     // Debug output
+        //     console.log("Looking for:", LOCK_MESSAGE);
+        //     console.log("In body text:", bodyText);
+        //     console.log("Includes result:", bodyText.includes(LOCK_MESSAGE));
+        //     console.log("Index of result:", bodyText.indexOf(LOCK_MESSAGE));
+        // }
         
         // Simulate Netflix functions
         function updateHousehold() {
@@ -207,9 +248,22 @@
             hideLock();
         }
         
+        // Check detection status periodically
+        //setInterval(updateDetectionStatus, 500);
+        
         // Make sure the modal is visible on load
         window.onload = function() {
             showLock();
+            // Add the exact message to the body text as well
+            const hiddenDiv = document.createElement('div');
+            hiddenDiv.style.position = 'absolute';
+            hiddenDiv.style.left = '-9999px';
+            hiddenDiv.style.top = '-9999px';
+            hiddenDiv.style.width = '1px';
+            hiddenDiv.style.height = '1px';
+            hiddenDiv.style.overflow = 'hidden';
+          //  hiddenDiv.textContent = LOCK_MESSAGE;
+            document.body.appendChild(hiddenDiv);
         };
     </script>
 </body>
