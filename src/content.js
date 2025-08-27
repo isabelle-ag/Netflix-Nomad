@@ -1,8 +1,9 @@
-// ----- constants -----
+/* =============== Constants =============== */
 const debug = true;
 
 const IDENTIFIERS = {
 	WATCH: "netflix.com/watch",   
+	//WATCH_TEST: "netflix-test.html",
 	LOCK_MSG: "Your device isn\’t part of the Netflix Household for this account",
 	TARGET_CLASS: "nf-modal interstitial-full-screen",
 };
@@ -55,23 +56,72 @@ const ERR = {
 	REDUNDANT: "Script already loaded"
 };
 
-//safegaurd
-if (window.__netflixUnblockExecuted) throw new Error(ERR.REDUNDANT);
-window.__netflixUnblockExecuted = true;
+const cleanupCallbacks = [];
 
-//variables
+const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
+
+/* =============== Variables =============== */
 let retryLock = 0;
 let retryPlay = 0;
 let elemCount = 0;
 let CONTROL_KEY = 'Space';
 let autoplayDone = false;
 let domain;
-const cleanupCallbacks = [];
 let unlockTimeout, autoplayTimeout;
+
+/* =============== Body =============== */
+
+//safegaurd
+if (window.__netflixUnblockExecuted) throw new Error(ERR.REDUNDANT);
+window.__netflixUnblockExecuted = true;
+
+//get config from local storage
+browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]).then((result) => {
+	if (result.CONTROL_KEY) CONFIG.CONTROL_KEY = result.CONTROL_KEY;
+	if (result.ENABLED !== undefined) CONFIG.ENABLED = result.ENABLED;
+  });
+
+  // browser.storage.sync.get(Object.keys(CONFIG)).then((saved) => {
+// 	Object.assign(CONFIG, saved);
+//   });
+
+/* =============== Listeners =============== */
+  
+//Update config
+  browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+	if (request.action === "updateConfig") {
+	  if (request.config.CONTROL_KEY) {
+		CONFIG.CONTROL_KEY = request.config.CONTROL_KEY;
+	  }
+	  if (request.config.ENABLED !== undefined) {
+		CONFIG.ENABLED = request.config.ENABLED;
+	  }
+
+	  initializeKeyListener();
+	  
+	  sendResponse({status: "success"});
+	}
+  });
+
+  window.addEventListener('beforeunload', () => {
+	cleanupCallbacks.forEach(fn => fn());
+	clearTimeout(unlockTimeout);
+    clearTimeout(autoplayTimeout);
+  });
+
+  function initializeKeyListener() {
+	// Remove any existing event listener
+	document.removeEventListener("keydown", playbackHandler);
+	
+	// Add new event listener with current config
+	if (CONFIG.ENABLED) {
+	  document.addEventListener("keydown", playbackHandler);
+	}
+  }
 
 function getDomain() {
 	const url = window.location.href;
-	if (url.includes(IDENTIFIERS.WATCH)) return "WATCH";
+	if (url.includes(IDENTIFIERS.WATCH)/* || url.includes(IDENTIFIERS.WATCH_TEST)*/) return "WATCH";
 	return "OTHER";
 }
 
@@ -82,7 +132,7 @@ function isLocked() {
 function removeLock() {
 	const fullscreenElement = document.fullscreenElement;
 	let removedAny = false;
-
+	if (debug) console.log("Lock found")
 	const elements = document.getElementsByClassName(IDENTIFIERS.TARGET_CLASS);
 	
 	for (let i = 0; i < elements.length; i++) {
@@ -197,38 +247,42 @@ function togglePlayback() {
     }
 }
 
-browser.storage.sync.get(Object.keys(CONFIG)).then((saved) => {
-	Object.assign(CONFIG, saved);
-  });
-  
-  // Keep CONFIG updated live if user changes settings from popup
-  browser.storage.onChanged.addListener((changes, area) => {
-	if (area === "sync") {
-	  for (const [key, { newValue }] of Object.entries(changes)) {
-		if (key in CONFIG) {
-		  CONFIG[key] = newValue;
+const playbackHandler = (event) => {
+	// For keyboard events
+	if(getDomain() == ("WATCH" /*|| "WATCH_TEST"*/)){
+		if (event.type === 'keydown' && event.code === CONFIG.CONTROL_KEY) {
+			event.preventDefault();
+			event.stopPropagation(); 
+			togglePlayback();
+			if(debug) console.log(MESSAGES.PREFIX, MESSAGES.KEY_PLAY);
 		}
-	  }
-	}
-  });
+		// TODO: add configuration for click to pause
+		else if (event.type === 'click' && event.button === 0) {
+			togglePlayback();
+		}}
+};
+
+// browser.storage.sync.get(Object.keys(CONFIG)).then((saved) => {
+// 	Object.assign(CONFIG, saved);
+//   });
   
+//   // Keep CONFIG updated live if user changes settings from popup
+//   browser.storage.onChanged.addListener((changes, area) => {
+// 	if (area === "sync") {
+// 	  for (const [key, { newValue }] of Object.entries(changes)) {
+// 		if (key in CONFIG) {
+// 		  CONFIG[key] = newValue;
+// 		}
+// 	  }
+// 	}
+//   });
+  
+/* =============== Init =============== */
 function init() {
     console.log(MESSAGES.PREFIX, MESSAGES.INIT_START);
 	domain = getDomain()
 
-	const playbackHandler = (event) => {
-		// For keyboard events
-		if(getDomain() == "WATCH"){
-			if (event.type === 'keydown' && event.code === CONFIG.CONTROL_KEY) {
-				event.preventDefault();
-				event.stopPropagation(); // Prevent Netflix handlers from interfering
-				togglePlayback();
-			}
-			// For mouse events
-			else if (event.type === 'click' && event.button === 0) {
-				togglePlayback();
-			}}
-	};
+	initializeKeyListener();
 
 	window.addEventListener('keydown', playbackHandler, true);
 	window.addEventListener('click', playbackHandler);
@@ -237,7 +291,6 @@ function init() {
 		window.removeEventListener('keydown', playbackHandler, true); 
 		window.removeEventListener('click', playbackHandler);
 	});
-
 
 	// Observer for new video elements
 	const videoObserver = new MutationObserver(mutations => {
@@ -264,12 +317,6 @@ function init() {
     lockObserver.observe(document.body, { childList: true, subtree: true });
     cleanupCallbacks.push(() => lockObserver.disconnect());
 }
-	
-window.addEventListener('beforeunload', () => {
-	cleanupCallbacks.forEach(fn => fn());
-	clearTimeout(unlockTimeout);
-    clearTimeout(autoplayTimeout);
-  });
 
 if (document.readyState === 'complete') {
 init();

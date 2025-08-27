@@ -67,9 +67,16 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
         controlKeyInput.classList.remove('recording');
         controlKeyInput.placeholder = 'Click to change key';
         controlKeyLabel.textContent = displayValue;
+        controlKeyInput.blur();
         
         await browserAPI.storage.local.set({ CONTROL_KEY: keyValue });
+        updateContentScript({ CONTROL_KEY: keyValue });
         showSaveMessage();
+      });
+
+      controlKeyInput.addEventListener('focus', function() {
+        this.classList.add('recording');
+        this.placeholder = 'Press any key...';
       });
 
       controlKeyInput.addEventListener('blur', function() {
@@ -83,6 +90,7 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
         controlKeyLabel.textContent = displayValue;
         
         await browserAPI.storage.local.set({ CONTROL_KEY: defaults.CONTROL_KEY });
+        updateContentScript({ CONTROL_KEY: defaults.CONTROL_KEY });
         showSaveMessage();
       });
 
@@ -91,6 +99,7 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
         updateEnabledText(enabledCheckbox.checked);
         await browserAPI.storage.local.set({ ENABLED: enabledCheckbox.checked });
         showSaveMessage();
+        updateContentScript({ ENABLED: enabledCheckbox.checked });
       });
 
       // Close popup on ESC key
@@ -104,4 +113,17 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
           }
         }
       });
+
+      function updateContentScript(config) {
+        // Get the active tab
+        browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
+          if (tabs[0] && tabs[0].url.includes("netflix.com")) {
+            // Send message to content script
+            browserAPI.tabs.sendMessage(tabs[0].id, {
+              action: "updateConfig",
+              config: config
+            });
+          }
+        });
+      }
     });

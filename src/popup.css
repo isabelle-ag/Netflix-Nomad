@@ -70,7 +70,7 @@
     .toggle-container {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: left;
       margin-bottom: 8px;
     }
 
@@ -135,6 +135,7 @@
       font-weight: 500;
       padding: 4px 8px;
       border-radius: 4px;
+      margin-left: 10px;
     }
 
     .status-enabled {
