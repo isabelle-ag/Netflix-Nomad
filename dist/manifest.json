@@ -4,6 +4,13 @@
 	"version": "2.0",
   
 	"description": "Bypasses household lock for netflix, customize playback controls",
+
+	"browser_specific_settings": {
+		"gecko": {
+		  "id": "netflix-nomad@isabelle-ag.com", 
+		  "strict_min_version": "91.0"
+		}
+	  },
   
 	"icons": {
 	  "48": "./NN-48.png",
