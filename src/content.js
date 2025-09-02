@@ -44,11 +44,14 @@ const MESSAGES = {
     KEY_PAUSE: (key) => key === "Space"
     ? "Video paused via spacebar"
     : `Video paused via ${key} key`,
-    UNLOCK_FAILED: (count) => `removeLock() did not remove the correct element. Elements removed: ${count++})\nTrying again`,
+	CLICK_PLAY: "Video played via click",
+	CLICK_PAUSE: "Video paused via click",
+    UNLOCK_FAILED: (count) => `removeLock() did not remove the correct element. Elements removed: ${count})\nTrying again`,
     PROFILE_CHOICE_SCREEN: "Skipping init: profile choice screen",
     PREFIX: "[Netflix Nomad]",
     EXTENSION_ENABLED: "Extension enabled, attempting to remove lock",
-    STORAGE_UPDATE: (key, value) => `Storage updated: ${key} = ${value}`
+    STORAGE_UPDATE: (key, value) => `Storage updated: ${key} = ${value}`,
+    MESSAGE_RECEIVED: "Message received from runtime"
 };
 
 const ERR = {
@@ -102,43 +105,71 @@ loadConfig();
 
 /* =============== Listeners =============== */
   
-// Update config
-browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (debug) console.log(MESSAGES.PREFIX, "Message received:", request);
+// Update config from messages
+function handleConfigUpdate(newConfig) {
+    if (debug) console.log(MESSAGES.PREFIX, MESSAGES.STORAGE_UPDATE("CONTROL_KEY", newConfig.CONTROL_KEY));
+    if (debug) console.log(MESSAGES.PREFIX, MESSAGES.STORAGE_UPDATE("ENABLED", newConfig.ENABLED));
     
-    if (request.action === "updateConfig") {
-        if (debug) console.log(MESSAGES.PREFIX, MESSAGES.STORAGE_UPDATE("CONTROL_KEY", request.config.CONTROL_KEY));
-        if (debug) console.log(MESSAGES.PREFIX, MESSAGES.STORAGE_UPDATE("ENABLED", request.config.ENABLED));
+    if (newConfig.CONTROL_KEY) {
+        CONFIG.CONTROL_KEY = newConfig.CONTROL_KEY;
+    }
+    if (newConfig.ENABLED !== undefined) {
+        const wasEnabled = CONFIG.ENABLED;
+        CONFIG.ENABLED = newConfig.ENABLED;
         
-        if (request.config.CONTROL_KEY) {
-            CONFIG.CONTROL_KEY = request.config.CONTROL_KEY;
-        }
-        if (request.config.ENABLED !== undefined) {
-            const wasEnabled = CONFIG.ENABLED;
-            CONFIG.ENABLED = request.config.ENABLED;
+        // If extension was just enabled, initialize or try to remove lock
+        if (CONFIG.ENABLED && !wasEnabled) {
+            if (debug) console.log(MESSAGES.PREFIX, MESSAGES.EXTENSION_ENABLED);
             
-            // If extension was just enabled, initialize or try to remove lock
-            if (CONFIG.ENABLED && !wasEnabled) {
-                if (debug) console.log(MESSAGES.PREFIX, MESSAGES.EXTENSION_ENABLED);
+            if (!isInitialized) {
+                // Initialize if not already done
+                init();
+            } else {
+                // Already initialized, just try to remove lock
+                tryUnlock();
                 
-                if (!isInitialized) {
-                    // Initialize if not already done
-                    init();
-                } else {
-                    // Already initialized, just try to remove lock
-                    tryUnlock();
-                    
-                    // Also try to process any videos
-                    document.querySelectorAll('video').forEach(processVideo);
-                }
+                // Also try to process any videos
+                document.querySelectorAll('video').forEach(processVideo);
             }
         }
+    }
 
-        initializeKeyListener();
+    initializeKeyListener();
+}
+
+// Message listener
+browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (debug) console.log(MESSAGES.PREFIX, MESSAGES.MESSAGE_RECEIVED, request);
+    
+    if (request.action === "updateConfig") {
+        handleConfigUpdate(request.config);
         
         // Send response
         sendResponse({status: "success"});
         return true; // Keep message channel open for async response
+    }
+});
+
+// Storage change listener as a fallback
+browserAPI.storage.onChanged.addListener((changes, area) => {
+    if (area === "local") {
+        if (debug) console.log(MESSAGES.PREFIX, "Storage changed:", changes);
+        
+        // Only proceed if relevant keys changed
+        if (!changes.CONTROL_KEY && !changes.ENABLED) return;
+        
+        const newConfig = {};
+        if (changes.CONTROL_KEY) {
+            newConfig.CONTROL_KEY = changes.CONTROL_KEY.newValue;
+        }
+        if (changes.ENABLED) {
+            newConfig.ENABLED = changes.ENABLED.newValue;
+        }
+        
+        if (Object.keys(newConfig).length > 0) {
+            // Add a small delay to avoid rapid consecutive updates
+            setTimeout(() => handleConfigUpdate(newConfig), 100);
+        }
     }
 });
 
@@ -148,6 +179,10 @@ window.addEventListener('beforeunload', () => {
     clearTimeout(autoplayTimeout);
     if (lockObserver) {
         lockObserver.disconnect();
+    }
+    // Also disconnect video observer if it exists
+    if (window.videoObserver) {
+        window.videoObserver.disconnect();
     }
 });
 
@@ -171,12 +206,10 @@ function getDomain() {
 }
 
 function isLocked() {
-    if (!CONFIG.ENABLED) return; 
-	return document.body.innerText.includes((IDENTIFIERS.LOCK_MSG));
+    return document.body.innerText.includes((IDENTIFIERS.LOCK_MSG));
 }
 
 function removeLock() {
-	if (!CONFIG.ENABLED) return;
     const fullscreenElement = document.fullscreenElement;
     let removedAny = false;
     if (debug) console.log(MESSAGES.PREFIX, "Lock found");
@@ -216,7 +249,7 @@ function tryUnlock() {
 
         retryLock++;
         if (elemCount > CONFIG.MAX_ELEMENTS){
-            console.error(MESSAGES.PREFIX, MESSAGES.UNLOCK_FAILED(elemCount));
+            console.error(MESSAGES.PREFIX, MESSAGES.UNLOCK_FAILED(elemCount++));
             location.reload();
         }
         else if (retryLock < CONFIG.MAX_RETRIES) {
@@ -233,8 +266,7 @@ function tryUnlock() {
 
 function setupLockObserver() {
     // Observer for lock overlay changes (always active, but only acts when enabled)
-    if (!CONFIG.ENABLED) return;
-	if (lockObserver) {
+    if (lockObserver) {
         lockObserver.disconnect();
     }
     
@@ -274,7 +306,6 @@ async function tryAutoplay() {
 }
 
 function scheduleRetry() {
-	if (!CONFIG.ENABLED) return;
     clearTimeout(autoplayTimeout); 
     const video = document.querySelector('video');
     if(video && video.paused){
@@ -297,14 +328,13 @@ function processVideo(video) {
 }
 
 function getVideoElement() {
-	if (!CONFIG.ENABLED) return;
     if (document.fullscreenElement?.querySelector('video')) {
         return document.fullscreenElement.querySelector('video');
     }
     return document.querySelector('video');
 }
 
-function togglePlayback() {
+function togglePlayback(type) {
     if(!CONFIG.ENABLED) return;
     const video = getVideoElement();
     if (!video) return;
@@ -312,10 +342,22 @@ function togglePlayback() {
     try {
         if (video.paused) {
             video.play();
-            if (debug) console.log(MESSAGES.PREFIX, MESSAGES.KEY_PLAY(CONFIG.CONTROL_KEY));
+            if (debug){
+				if (type === "key"){
+					console.log(MESSAGES.PREFIX, MESSAGES.KEY_PLAY(CONFIG.CONTROL_KEY));
+				}
+				else{
+					console.log(MESSAGES.PREFIX, MESSAGES.CLICK_PLAY);
+				}
+			}
         } else {
             video.pause();
-            if (debug) console.log(MESSAGES.PREFIX, MESSAGES.KEY_PAUSE(CONFIG.CONTROL_KEY));
+            if (type === "key"){
+				console.log(MESSAGES.PREFIX, MESSAGES.KEY_PAUSE(CONFIG.CONTROL_KEY));
+			}
+			else{
+				console.log(MESSAGES.PREFIX, MESSAGES.CLICK_PAUSE);
+			}
         }
     } catch (e) {
         console.warn(MESSAGES.PREFIX, "Playback toggle failed:", e);
@@ -329,11 +371,14 @@ const playbackHandler = (event) => {
         if (event.type === 'keydown' && event.code === CONFIG.CONTROL_KEY) {
             event.preventDefault();
             event.stopPropagation(); 
-            togglePlayback();
+            togglePlayback("key");
         }
         // TODO: add configuration for click to pause
         else if (event.type === 'click' && event.button === 0) {
-            togglePlayback();
+			//If overlay is present, netflix native click to pause will work, we don't want to toggle twice
+			if (document.getElementsByClassName("watch-video--evidence-overlay-container").length > 0) return;
+			togglePlayback("click");
+			return false;
         }
     }
 };
@@ -355,17 +400,18 @@ function init() {
         window.removeEventListener('click', playbackHandler);
     });
 
-    // Observer for new video elements
-    const videoObserver = new MutationObserver(mutations => {
-        mutations.forEach(mutation => {
-            mutation.addedNodes.forEach(node => {
-                if (node.tagName === 'VIDEO') processVideo(node);
-                if (node.querySelectorAll) node.querySelectorAll('video').forEach(processVideo);
-            });
-        });
-    });
-    videoObserver.observe(document.body, { childList: true, subtree: true });
-    cleanupCallbacks.push(() => videoObserver.disconnect());
+    // In the init() function:
+// Observer for new video elements
+	window.videoObserver = new MutationObserver(mutations => {
+		mutations.forEach(mutation => {
+			mutation.addedNodes.forEach(node => {
+				if (node.tagName === 'VIDEO') processVideo(node);
+				if (node.querySelectorAll) node.querySelectorAll('video').forEach(processVideo);
+			});
+		});
+	});
+	window.videoObserver.observe(document.body, { childList: true, subtree: true });
+	cleanupCallbacks.push(() => window.videoObserver.disconnect());
 
     // Set up lock observer
     setupLockObserver();
