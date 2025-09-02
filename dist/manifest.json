@@ -7,7 +7,7 @@
 
 	"browser_specific_settings": {
 		"gecko": {
-		  "id": "netflix-nomad@isabelle-ag.com", 
+		  "id": "{b333dbc2-069d-4aab-9b16-55d28b435819}",
 		  "strict_min_version": "91.0"
 		}
 	  },
