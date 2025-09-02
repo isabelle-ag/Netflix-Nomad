@@ -1,20 +1,32 @@
 {
-	"manifest_version": 2,
+	"manifest_version": 3,
 	"name": "Netflix Nomad",
-	"version": "1.1",
+	"version": "2.0",
   
-	"description": "Bypasses household lock for netflix",
+	"description": "Bypasses household lock for netflix, customize playback controls",
   
 	"icons": {
 	  "48": "./NN-48.png",
 	  "96": "./NN-96.png"
 	},
+
+	"action": {
+		"default_popup": "popup.html",
+		"default_icon": {
+		  "48": "./NN-48.png",
+		  "96": "./NN.96.png"
+		},
+		"default_title": "Netflix Bypass"
+	  },
   
 	"content_scripts": [
 	  {
-		"matches": ["*://*.netflix.com/*"],
+		"matches": ["*://*.netflix.com/*" ],
 		"js": ["content.js"]
 	  }
-	]
+	],
+
+	"permissions": ["storage", "scripting", "activeTab"]
+	
   }
   
