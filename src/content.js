@@ -4,7 +4,7 @@ const debug = true;
 const IDENTIFIERS = {
     WATCH: "netflix.com/watch",   
     LOCK_MSG: "Your device isn\’t part of the Netflix Household for this account",
-    TARGET_CLASS: "nf-modal interstitial-full-screen",
+    OVERLAY: "nf-modal interstitial-full-screen",
 };
 
 const CONFIG = {
@@ -214,7 +214,7 @@ function removeLock() {
     let removedAny = false;
     if (debug) console.log(MESSAGES.PREFIX, "Lock found");
     
-    const elements = document.getElementsByClassName(IDENTIFIERS.TARGET_CLASS);
+    const elements = document.getElementsByClassName(IDENTIFIERS.OVERLAY);
     
     for (let i = 0; i < elements.length; i++) {
         const style = getComputedStyle(elements[i]);
@@ -376,7 +376,7 @@ const playbackHandler = (event) => {
         // TODO: add configuration for click to pause
         else if (event.type === 'click' && event.button === 0) {
 			//If overlay is present, netflix native click to pause will work, we don't want to toggle twice
-			if (document.getElementsByClassName("watch-video--evidence-overlay-container").length > 0) return;
+			if (document.getElementsByClassName(IDENTIFIERS.OVERLAY).length > 0) return;
 			togglePlayback("click");
 			return false;
         }
