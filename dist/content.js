@@ -14,7 +14,8 @@ const CONFIG = {
     RETRY_DELAY: 1000,    
     CONTROL_KEY: 'Space',  
     MAX_ELEMENTS: 10,
-    ENABLED: true
+    ENABLED: true,
+	DEFAULT_KEY: 'Space'
 };
 
 const SELECTORS = {
@@ -81,14 +82,15 @@ let lockObserver = null;
 if (window.__netflixUnblockExecuted) throw new Error(ERR.REDUNDANT);
 window.__netflixUnblockExecuted = true;
 
-// Get config from local storage
+
 async function loadConfig() {
     try {
         const result = await browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]);
         if (debug) console.log(MESSAGES.PREFIX, "Loaded config from storage:", result);
         
-        if (result.CONTROL_KEY) CONFIG.CONTROL_KEY = result.CONTROL_KEY;
-        if (result.ENABLED !== undefined) CONFIG.ENABLED = result.ENABLED;
+        // Use fallback values if storage retrieval fails
+        CONFIG.CONTROL_KEY = result.CONTROL_KEY || 'Space';
+        CONFIG.ENABLED = result.ENABLED !== undefined ? result.ENABLED : true;
         
         // Initialize if enabled
         if (CONFIG.ENABLED) {
@@ -98,7 +100,11 @@ async function loadConfig() {
             setupLockObserver();
         }
     } catch (error) {
-        console.error(MESSAGES.PREFIX, "Error loading config:", error);
+        console.error(MESSAGES.PREFIX, "Error loading config, using defaults:", error);
+        // Use default values if storage is unavailable
+        CONFIG.CONTROL_KEY = 'Space';
+        CONFIG.ENABLED = true;
+        init();
     }
 }
 
@@ -211,7 +217,6 @@ function isLocked() {
 }
 
 function removeLock() {
-    const fullscreenElement = document.fullscreenElement;
     let removedAny = false;
     if (debug) console.log(MESSAGES.PREFIX, "Lock found");
     
@@ -220,7 +225,7 @@ function removeLock() {
     for (let i = 0; i < elements.length; i++) {
         const style = getComputedStyle(elements[i]);
         if ((style.position === 'fixed' || style.position === 'sticky') && 
-            !elements[i].contains(fullscreenElement)) {
+            !elements[i].contains(SELECTORS.FULLSCREEN_ELEMENT)) {
             elements[i].remove();
             if (debug) console.log(MESSAGES.PREFIX, MESSAGES.ELEMENT_REMOVED);
             elemCount++;
@@ -250,7 +255,8 @@ function tryUnlock() {
 
         retryLock++;
         if (elemCount > CONFIG.MAX_ELEMENTS){
-            console.error(MESSAGES.PREFIX, MESSAGES.UNLOCK_FAILED(elemCount++));
+            console.error(MESSAGES.PREFIX, MESSAGES.UNLOCK_FAILED(elemCount));
+			elemCount++;
             location.reload();
         }
         else if (retryLock < CONFIG.MAX_RETRIES) {
@@ -379,7 +385,6 @@ const playbackHandler = (event) => {
 			//If overlay is present, netflix native click to pause will work, we don't want to toggle twice
 			if (document.getElementsByClassName(IDENTIFIERS.OVERLAY).length > 0) return;
 			togglePlayback("click");
-			return false;
         }
     }
 };
@@ -400,6 +405,10 @@ function init() {
         window.removeEventListener('keydown', playbackHandler, true); 
         window.removeEventListener('click', playbackHandler);
     });
+
+	if (window.videoObserver) {
+        window.videoObserver.disconnect();
+    }
 
 	// Observer for new video elements
 	window.videoObserver = new MutationObserver(mutations => {

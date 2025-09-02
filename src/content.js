@@ -80,6 +80,61 @@ let lockObserver = null;
 if (window.__netflixUnblockExecuted) throw new Error(ERR.REDUNDANT);
 window.__netflixUnblockExecuted = true;
 
+// Message listener
+/*browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (debug) console.log(MESSAGES.PREFIX, MESSAGES.MESSAGE_RECEIVED, request);
+    
+    // Validate message structure - ensures we only process properly formatted messages
+    if (!request || typeof request !== 'object') {
+        sendResponse({status: "error", message: "Invalid message format"});
+        return false; // Close the message channel
+    }
+    
+    // Handle different message types using a switch statement for clarity
+    switch (request.action) {
+        case "updateConfig":
+            // Validate config structure before processing
+            if (request.config && typeof request.config === 'object') {
+                handleConfigUpdate(request.config);
+                sendResponse({status: "success"});
+            } else {
+                sendResponse({status: "error", message: "Invalid config format"});
+            }
+            break;
+            
+        case "getStatus":
+            // Provide status information to the requesting component
+            sendResponse({
+                status: "success", 
+                data: {
+                    enabled: CONFIG.ENABLED,
+                    controlKey: CONFIG.CONTROL_KEY,
+                    isInitialized: isInitialized,
+                    domain: domain
+                }
+            });
+            break;
+            
+        case "forceUnlock":
+            // Allow external triggering of the unlock process
+            if (CONFIG.ENABLED) {
+                tryUnlock();
+                sendResponse({status: "success", action: "unlockTriggered"});
+            } else {
+                sendResponse({status: "error", message: "Extension is disabled"});
+            }
+            break;
+            
+        default:
+            // Handle unknown actions gracefully
+            console.warn(MESSAGES.PREFIX, "Unknown message action:", request.action);
+            sendResponse({status: "error", message: "Unknown action"});
+            return false; // Close the message channel for unknown actions
+    }
+    
+    return true; // Keep message channel open for async response
+});*/
+
 // Get config from local storage
 async function loadConfig() {
     try {
