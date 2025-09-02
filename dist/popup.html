@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+  <title>Netflix Nomad Settings</title>
+</head>
+<body>
+  <div class="header">
+    <img src="./NN-48.png" alt="Netflix Nomad Icon">
+    <h3>Netflix Nomad</h3>
+  </div>
+  
+  <div class="card">
+    <!-- Enabled toggle -->
+    <div class="toggle-container">
+      <label class="toggle-label" title="Enable or disable Netflix Nomad">
+        <label class="switch">
+          <input id="enabledToggle" type="checkbox">
+          <span class="slider"></span>
+        </label>
+      </label>
+      <span class="status-label" id="enabledStatus">—</span>
+    </div>
+
+    <!-- Play/Pause key -->
+    <div class="control-key-container">
+      <label class="control-key-label">Play/Pause Key Binding</label>
+      <div class="key-input-container">
+        <input id="controlKey" type="text" readonly placeholder="Click and press a key">
+        <button class="reset-btn" id="resetKey" title="Reset to default key">Reset</button>
+      </div>
+      <p class="hint">Current key: <span id="controlKeyLabel">—</span></p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span id="saveMessage">Settings saved</span>
+    <span id="versionLabel"></span>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
