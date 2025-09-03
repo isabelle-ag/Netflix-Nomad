@@ -1,14 +1,14 @@
 {
 	"manifest_version": 3,
 	"name": "Netflix Nomad",
-	"version": "2.0",
+	"version": "2.1.2",
   
 	"description": "Bypasses household lock for netflix, customize playback controls",
 
 	"browser_specific_settings": {
 		"gecko": {
 		  "id": "{b333dbc2-069d-4aab-9b16-55d28b435819}",
-		  "strict_min_version": "91.0"
+		  "strict_min_version": "109.0"
 		}
 	  },
   
