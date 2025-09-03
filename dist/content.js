@@ -15,7 +15,6 @@ const CONFIG = {
     CONTROL_KEY: 'Space',  
     MAX_ELEMENTS: 10,
     ENABLED: true,
-	DEFAULT_KEY: 'Space'
 };
 
 const SELECTORS = {
