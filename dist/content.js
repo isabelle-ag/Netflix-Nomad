@@ -398,11 +398,11 @@ function init() {
     initializeKeyListener();
 
     window.addEventListener('keydown', playbackHandler, true);
-    window.addEventListener('click', playbackHandler);
+   // window.addEventListener('click', playbackHandler);
 
     cleanupCallbacks.push(() => {
         window.removeEventListener('keydown', playbackHandler, true); 
-        window.removeEventListener('click', playbackHandler);
+       // window.removeEventListener('click', playbackHandler);
     });
 
 	if (window.videoObserver) {
