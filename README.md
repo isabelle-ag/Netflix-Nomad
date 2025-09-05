@@ -4,8 +4,6 @@
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ff813f?logo=buy-me-a-coffee&logoColor=white)](https://www.buymeacoffee.com/isabelle.ag)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
->The official Firefox Add-ons store listing is pending review. In the meantime, you can install it [manually](#manual-installation).
-
 > Bypass Netflix's “Not part of this household” restrictions and keep playback controls functional.
 
 ---
@@ -27,9 +25,9 @@
 > ⚠️ **Heads-up:** Netflix Nomad currently **hides Netflix’s native control bar**. To keep playback usable, the extension adds lightweight keyboard and mouse controls (see below). Restoring the native bar is on the roadmap.
 
 **What it does**
-- Dismisses/neutralizes “household lock” overlays so the player is reachable.
-- Resumes playback automatically after unlock.
-- Adds reliable play/pause via **Space**, click-to-toggle, and other essentials
+- Dismisses/neutralizes “household lock” overlays so the player is reachable
+- Resumes playback automatically after unlock
+- Adds reliable play/pause via **Space**, configurable to any key
 
 ---
 
@@ -56,7 +54,7 @@
 4. Select the downloaded ZIP file
    - *Alternatively: Extract the ZIP and select any file from the folder (like `manifest.json`)*
 
-> Note: Temporary add-ons remain installed until you restart Firefox. For permanent installation, consider using the Firefox Add-ons store version.
+> Note: Temporary add-ons remain installed until you restart Firefox and must be clicked to initialize. For permanent installation, consider using the Firefox Add-ons store version.
 
 > Currently tested only in Firefox. Chrome build requires further testing.
 
@@ -84,7 +82,7 @@ Netflix Nomad bypasses household verification through **non-invasive DOM manipul
 Netflix Nomad restores intuitive controls so playback remains fully usable even without the native control bar.  
 | Action | Shortcut |
 |--------|--------|
-| Play/Pause | <kbd>Space</kbd> <sup>✢</sup> <br> <sub>Single left-click on video <sup>✢</sup></sub> |
+| Play/Pause | <kbd>Space</kbd> <sup>✢</sup> <br> |
 | Skip Intro | <kbd>S</kbd> <sup>✦</sup> |
 | Skip Back/Forward 10s | <kbd>←</kbd> / <kbd>→</kbd> <sup>✦</sup> |
 | Volume Up/Down | <kbd>↑</kbd> / <kbd>↓</kbd> <sup>✲</sup> |
