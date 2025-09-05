@@ -4,7 +4,8 @@ const debug = true;
 const IDENTIFIERS = {
     WATCH: "netflix.com/watch",   
     LOCK_MSG: "Your device isn\’t part of the Netflix Household for this account",
-    OVERLAY: "nf-modal interstitial-full-screen",
+    OVERLAY: `[data-uia*="controls-standard"]`,
+    TARGET_CLASS: "nf-modal interstitial-full-screen",
 };
 
 const CONFIG = {
@@ -138,25 +139,30 @@ window.__netflixUnblockExecuted = true;
 // Get config from local storage
 async function loadConfig() {
     try {
-        const result = await browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]);
+        // Set a timeout for storage access (3 seconds)
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Config load timeout')), 3000);
+        });
+        
+        // Race between storage access and timeout
+        const result = await Promise.race([
+            browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]),
+            timeoutPromise
+        ]);
+        
         if (debug) console.log(MESSAGES.PREFIX, "Loaded config from storage:", result);
         
-        if (result.CONTROL_KEY) CONFIG.CONTROL_KEY = result.CONTROL_KEY;
-        if (result.ENABLED !== undefined) CONFIG.ENABLED = result.ENABLED;
+        CONFIG.CONTROL_KEY = result.CONTROL_KEY || 'Space';
+        CONFIG.ENABLED = result.ENABLED !== undefined ? result.ENABLED : true;
         
-        // Initialize if enabled
-        if (CONFIG.ENABLED) {
-            init();
-        } else {
-            // Even if disabled, set up the lock observer to watch for changes
-            setupLockObserver();
-        }
+        return true;
     } catch (error) {
-        console.error(MESSAGES.PREFIX, "Error loading config:", error);
+        console.error(MESSAGES.PREFIX, "Error loading config, using defaults:", error);
+        CONFIG.CONTROL_KEY = 'Space';
+        CONFIG.ENABLED = true;
+        return true;
     }
 }
-
-loadConfig();
 
 /* =============== Listeners =============== */
   
@@ -269,12 +275,15 @@ function removeLock() {
     let removedAny = false;
     if (debug) console.log(MESSAGES.PREFIX, "Lock found");
     
-    const elements = document.getElementsByClassName(IDENTIFIERS.OVERLAY);
+    const elements = document.getElementsByClassName(IDENTIFIERS.TARGET_CLASS);
     
     for (let i = 0; i < elements.length; i++) {
+        if (!document.body.contains(elements[i])) {
+            continue;
+        }
         const style = getComputedStyle(elements[i]);
         if ((style.position === 'fixed' || style.position === 'sticky') && 
-            !elements[i].contains(fullscreenElement)) {
+        (!fullscreenElement || !elements[i].contains(fullscreenElement))) {
             elements[i].remove();
             if (debug) console.log(MESSAGES.PREFIX, MESSAGES.ELEMENT_REMOVED);
             elemCount++;
@@ -283,12 +292,18 @@ function removeLock() {
     }
     return removedAny;
 }
-
+//Add manual unlock button
 function tryUnlock() {
     if(!CONFIG.ENABLED) {
         if (debug) console.log(MESSAGES.PREFIX, "Extension disabled, skipping unlock");
         return;
     }
+
+    if (!document.body || !document.body.contains) {
+        if (debug) console.log(MESSAGES.PREFIX, "Document not ready");
+        return;
+    }
+
     if (!isLocked()) {
         retryLock = 0;
         elemCount = 0;
@@ -304,7 +319,8 @@ function tryUnlock() {
 
         retryLock++;
         if (elemCount > CONFIG.MAX_ELEMENTS){
-            console.error(MESSAGES.PREFIX, MESSAGES.UNLOCK_FAILED(elemCount++));
+            console.error(MESSAGES.PREFIX, MESSAGES.UNLOCK_FAILED(elemCount));
+            elemCount++;
             location.reload();
         }
         else if (retryLock < CONFIG.MAX_RETRIES) {
@@ -335,7 +351,7 @@ function setupLockObserver() {
     lockObserver.observe(document.body, { childList: true, subtree: true });
     if (debug) console.log(MESSAGES.PREFIX, "Lock observer set up");
 }
-
+//TODO: review and test thoroughly
 async function tryAutoplay() {
     if(!CONFIG.ENABLED) return;
     if (autoplayDone) return;
@@ -433,7 +449,6 @@ const playbackHandler = (event) => {
 			//If overlay is present, netflix native click to pause will work, we don't want to toggle twice
 			if (document.getElementsByClassName(IDENTIFIERS.OVERLAY).length > 0) return;
 			togglePlayback("click");
-			return false;
         }
     }
 };
@@ -448,14 +463,17 @@ function init() {
     initializeKeyListener();
 
     window.addEventListener('keydown', playbackHandler, true);
-    window.addEventListener('click', playbackHandler);
+    //TODO: fix click handler
+    //window.addEventListener('click', playbackHandler);
 
     cleanupCallbacks.push(() => {
         window.removeEventListener('keydown', playbackHandler, true); 
-        window.removeEventListener('click', playbackHandler);
+        //window.removeEventListener('click', playbackHandler);
     });
 
-    // In the init() function:
+    if (window.videoObserver) {
+        window.videoObserver.disconnect();
+    }
 // Observer for new video elements
 	window.videoObserver = new MutationObserver(mutations => {
 		mutations.forEach(mutation => {
@@ -480,14 +498,20 @@ function init() {
     isInitialized = true;
 }
 
-// Initialize when page loads if enabled
-if (CONFIG.ENABLED) {
-    if (document.readyState === 'complete') {
-        init();
+async function initializeExtension() {
+    await loadConfig();
+    
+    // The rest of your initialization logic
+    if (CONFIG.ENABLED) {
+        if (document.readyState === 'complete') {
+            init();
+        } else {
+            window.addEventListener('load', init);
+        }
     } else {
-        window.addEventListener('load', init);
+        setupLockObserver();
     }
-} else {
-    // Set up lock observer even if disabled initially
-    setupLockObserver();
 }
+
+// Start the initialization process
+initializeExtension();

@@ -1,11 +1,11 @@
 /* =============== Constants =============== */
-const debug = false;
+const debug = true;
 
 const IDENTIFIERS = {
     WATCH: "netflix.com/watch",   
     LOCK_MSG: "Your device isn\’t part of the Netflix Household for this account",
+    OVERLAY: `[data-uia*="controls-standard"]`,
     TARGET_CLASS: "nf-modal interstitial-full-screen",
-	OVERLAY: "watch-video--evidence-overlay-container"
 };
 
 const CONFIG = {
@@ -14,7 +14,7 @@ const CONFIG = {
     RETRY_DELAY: 1000,    
     CONTROL_KEY: 'Space',  
     MAX_ELEMENTS: 10,
-    ENABLED: true,
+    ENABLED: true
 };
 
 const SELECTORS = {
@@ -77,41 +77,35 @@ let lockObserver = null;
 
 /* =============== Body =============== */
 
-// Safeguard
 if (window.__netflixUnblockExecuted) throw new Error(ERR.REDUNDANT);
 window.__netflixUnblockExecuted = true;
 
-
 async function loadConfig() {
     try {
-        const result = await browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]);
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Config load timeout')), 3000);
+        });
+        const result = await Promise.race([
+            browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]),
+            timeoutPromise
+        ]);
+        
         if (debug) console.log(MESSAGES.PREFIX, "Loaded config from storage:", result);
         
-        // Use fallback values if storage retrieval fails
         CONFIG.CONTROL_KEY = result.CONTROL_KEY || 'Space';
         CONFIG.ENABLED = result.ENABLED !== undefined ? result.ENABLED : true;
         
-        // Initialize if enabled
-        if (CONFIG.ENABLED) {
-            init();
-        } else {
-            // Even if disabled, set up the lock observer to watch for changes
-            setupLockObserver();
-        }
+        return true;
     } catch (error) {
         console.error(MESSAGES.PREFIX, "Error loading config, using defaults:", error);
-        // Use default values if storage is unavailable
         CONFIG.CONTROL_KEY = 'Space';
         CONFIG.ENABLED = true;
-        init();
+        return true;
     }
 }
 
-loadConfig();
-
 /* =============== Listeners =============== */
   
-// Update config from messages
 function handleConfigUpdate(newConfig) {
     if (debug) console.log(MESSAGES.PREFIX, MESSAGES.STORAGE_UPDATE("CONTROL_KEY", newConfig.CONTROL_KEY));
     if (debug) console.log(MESSAGES.PREFIX, MESSAGES.STORAGE_UPDATE("ENABLED", newConfig.ENABLED));
@@ -122,19 +116,15 @@ function handleConfigUpdate(newConfig) {
     if (newConfig.ENABLED !== undefined) {
         const wasEnabled = CONFIG.ENABLED;
         CONFIG.ENABLED = newConfig.ENABLED;
-        
-        // If extension was just enabled, initialize or try to remove lock
+
         if (CONFIG.ENABLED && !wasEnabled) {
             if (debug) console.log(MESSAGES.PREFIX, MESSAGES.EXTENSION_ENABLED);
             
             if (!isInitialized) {
-                // Initialize if not already done
                 init();
-            } else {
-                // Already initialized, just try to remove lock
+            } else {      
                 tryUnlock();
-                
-                // Also try to process any videos
+
                 document.querySelectorAll('video').forEach(processVideo);
             }
         }
@@ -143,25 +133,20 @@ function handleConfigUpdate(newConfig) {
     initializeKeyListener();
 }
 
-// Message listener
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (debug) console.log(MESSAGES.PREFIX, MESSAGES.MESSAGE_RECEIVED, request);
     
     if (request.action === "updateConfig") {
         handleConfigUpdate(request.config);
-        
-        // Send response
         sendResponse({status: "success"});
-        return true; // Keep message channel open for async response
+        return true; 
     }
 });
 
-// Storage change listener as a fallback
 browserAPI.storage.onChanged.addListener((changes, area) => {
     if (area === "local") {
         if (debug) console.log(MESSAGES.PREFIX, "Storage changed:", changes);
         
-        // Only proceed if relevant keys changed
         if (!changes.CONTROL_KEY && !changes.ENABLED) return;
         
         const newConfig = {};
@@ -173,7 +158,6 @@ browserAPI.storage.onChanged.addListener((changes, area) => {
         }
         
         if (Object.keys(newConfig).length > 0) {
-            // Add a small delay to avoid rapid consecutive updates
             setTimeout(() => handleConfigUpdate(newConfig), 100);
         }
     }
@@ -186,17 +170,14 @@ window.addEventListener('beforeunload', () => {
     if (lockObserver) {
         lockObserver.disconnect();
     }
-    // Also disconnect video observer if it exists
     if (window.videoObserver) {
         window.videoObserver.disconnect();
     }
 });
 
 function initializeKeyListener() {
-    // Remove any existing event listener
     document.removeEventListener("keydown", playbackHandler);
     
-    // Add new event listener with current config
     if (CONFIG.ENABLED) {
         document.addEventListener("keydown", playbackHandler);
         if (debug) console.log(MESSAGES.PREFIX, "Key listener initialized with key:", CONFIG.CONTROL_KEY);
@@ -216,15 +197,19 @@ function isLocked() {
 }
 
 function removeLock() {
+    const fullscreenElement = document.fullscreenElement;
     let removedAny = false;
     if (debug) console.log(MESSAGES.PREFIX, "Lock found");
     
     const elements = document.getElementsByClassName(IDENTIFIERS.TARGET_CLASS);
     
     for (let i = 0; i < elements.length; i++) {
+        if (!document.body.contains(elements[i])) {
+            continue;
+        }
         const style = getComputedStyle(elements[i]);
         if ((style.position === 'fixed' || style.position === 'sticky') && 
-            !elements[i].contains(SELECTORS.FULLSCREEN_ELEMENT)) {
+        (!fullscreenElement || !elements[i].contains(fullscreenElement))) {
             elements[i].remove();
             if (debug) console.log(MESSAGES.PREFIX, MESSAGES.ELEMENT_REMOVED);
             elemCount++;
@@ -239,6 +224,12 @@ function tryUnlock() {
         if (debug) console.log(MESSAGES.PREFIX, "Extension disabled, skipping unlock");
         return;
     }
+
+    if (!document.body || !document.body.contains) {
+        if (debug) console.log(MESSAGES.PREFIX, "Document not ready");
+        return;
+    }
+
     if (!isLocked()) {
         retryLock = 0;
         elemCount = 0;
@@ -255,7 +246,7 @@ function tryUnlock() {
         retryLock++;
         if (elemCount > CONFIG.MAX_ELEMENTS){
             console.error(MESSAGES.PREFIX, MESSAGES.UNLOCK_FAILED(elemCount));
-			elemCount++;
+            elemCount++;
             location.reload();
         }
         else if (retryLock < CONFIG.MAX_RETRIES) {
@@ -271,7 +262,6 @@ function tryUnlock() {
 }
 
 function setupLockObserver() {
-    // Observer for lock overlay changes (always active, but only acts when enabled)
     if (lockObserver) {
         lockObserver.disconnect();
     }
@@ -371,19 +361,12 @@ function togglePlayback(type) {
 }
 
 const playbackHandler = (event) => {
-    // For keyboard events
     if(!CONFIG.ENABLED) return;
     if(getDomain() === "WATCH"){
         if (event.type === 'keydown' && event.code === CONFIG.CONTROL_KEY) {
             event.preventDefault();
             event.stopPropagation(); 
             togglePlayback("key");
-        }
-        // TODO: add configuration for click to pause
-        else if (event.type === 'click' && event.button === 0) {
-			//If overlay is present, netflix native click to pause will work, we don't want to toggle twice
-			if (document.getElementsByClassName(IDENTIFIERS.OVERLAY).length > 0) return;
-			togglePlayback("click");
         }
     }
 };
@@ -398,18 +381,16 @@ function init() {
     initializeKeyListener();
 
     window.addEventListener('keydown', playbackHandler, true);
-   // window.addEventListener('click', playbackHandler);
 
     cleanupCallbacks.push(() => {
         window.removeEventListener('keydown', playbackHandler, true); 
-       // window.removeEventListener('click', playbackHandler);
+
     });
 
-	if (window.videoObserver) {
+    if (window.videoObserver) {
         window.videoObserver.disconnect();
     }
 
-	// Observer for new video elements
 	window.videoObserver = new MutationObserver(mutations => {
 		mutations.forEach(mutation => {
 			mutation.addedNodes.forEach(node => {
@@ -421,10 +402,7 @@ function init() {
 	window.videoObserver.observe(document.body, { childList: true, subtree: true });
 	cleanupCallbacks.push(() => window.videoObserver.disconnect());
 
-    // Set up lock observer
     setupLockObserver();
-
-    // Initial attempt after small delay
     setTimeout(() => {
         tryUnlock();
         document.querySelectorAll('video').forEach(processVideo);
@@ -433,14 +411,18 @@ function init() {
     isInitialized = true;
 }
 
-// Initialize when page loads if enabled
-if (CONFIG.ENABLED) {
-    if (document.readyState === 'complete') {
-        init();
+async function initializeExtension() {
+    await loadConfig();
+    
+    if (CONFIG.ENABLED) {
+        if (document.readyState === 'complete') {
+            init();
+        } else {
+            window.addEventListener('load', init);
+        }
     } else {
-        window.addEventListener('load', init);
+        setupLockObserver();
     }
-} else {
-    // Set up lock observer even if disabled initially
-    setupLockObserver();
 }
+
+initializeExtension();
