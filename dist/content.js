@@ -1,10 +1,10 @@
 /* =============== Constants =============== */
-const debug = false;
+const debug = true;
 
 const IDENTIFIERS = {
     WATCH: "netflix.com/watch",   
     LOCK_MSG: "Your device isn\’t part of the Netflix Household for this account",
-	OVERLAY: `[data-uia*="controls-standard"]`,
+    OVERLAY: `[data-uia*="controls-standard"]`,
     TARGET_CLASS: "nf-modal interstitial-full-screen",
 };
 
@@ -77,32 +77,32 @@ let lockObserver = null;
 
 /* =============== Body =============== */
 
-// Safeguard
 if (window.__netflixUnblockExecuted) throw new Error(ERR.REDUNDANT);
 window.__netflixUnblockExecuted = true;
 
 async function loadConfig() {
     try {
-        const result = await browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]);
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Config load timeout')), 3000);
+        });
+        const result = await Promise.race([
+            browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]),
+            timeoutPromise
+        ]);
+        
         if (debug) console.log(MESSAGES.PREFIX, "Loaded config from storage:", result);
         
         CONFIG.CONTROL_KEY = result.CONTROL_KEY || 'Space';
         CONFIG.ENABLED = result.ENABLED !== undefined ? result.ENABLED : true;
-
-        if (CONFIG.ENABLED) {
-            init();
-        } else {
-            setupLockObserver();
-        }
+        
+        return true;
     } catch (error) {
         console.error(MESSAGES.PREFIX, "Error loading config, using defaults:", error);
         CONFIG.CONTROL_KEY = 'Space';
         CONFIG.ENABLED = true;
-        init();
+        return true;
     }
 }
-
-loadConfig();
 
 /* =============== Listeners =============== */
   
@@ -116,25 +116,28 @@ function handleConfigUpdate(newConfig) {
     if (newConfig.ENABLED !== undefined) {
         const wasEnabled = CONFIG.ENABLED;
         CONFIG.ENABLED = newConfig.ENABLED;
-        
+
         if (CONFIG.ENABLED && !wasEnabled) {
             if (debug) console.log(MESSAGES.PREFIX, MESSAGES.EXTENSION_ENABLED);
+            
             if (!isInitialized) {
                 init();
-            } else {
+            } else {      
                 tryUnlock();
+
                 document.querySelectorAll('video').forEach(processVideo);
             }
         }
     }
+
     initializeKeyListener();
 }
 
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (debug) console.log(MESSAGES.PREFIX, MESSAGES.MESSAGE_RECEIVED, request);
+    
     if (request.action === "updateConfig") {
         handleConfigUpdate(request.config);
-
         sendResponse({status: "success"});
         return true; 
     }
@@ -174,6 +177,7 @@ window.addEventListener('beforeunload', () => {
 
 function initializeKeyListener() {
     document.removeEventListener("keydown", playbackHandler);
+    
     if (CONFIG.ENABLED) {
         document.addEventListener("keydown", playbackHandler);
         if (debug) console.log(MESSAGES.PREFIX, "Key listener initialized with key:", CONFIG.CONTROL_KEY);
@@ -200,9 +204,12 @@ function removeLock() {
     const elements = document.getElementsByClassName(IDENTIFIERS.TARGET_CLASS);
     
     for (let i = 0; i < elements.length; i++) {
+        if (!document.body.contains(elements[i])) {
+            continue;
+        }
         const style = getComputedStyle(elements[i]);
         if ((style.position === 'fixed' || style.position === 'sticky') && 
-            !elements[i].contains(fullscreenElement)) {
+        (!fullscreenElement || !elements[i].contains(fullscreenElement))) {
             elements[i].remove();
             if (debug) console.log(MESSAGES.PREFIX, MESSAGES.ELEMENT_REMOVED);
             elemCount++;
@@ -217,6 +224,12 @@ function tryUnlock() {
         if (debug) console.log(MESSAGES.PREFIX, "Extension disabled, skipping unlock");
         return;
     }
+
+    if (!document.body || !document.body.contains) {
+        if (debug) console.log(MESSAGES.PREFIX, "Document not ready");
+        return;
+    }
+
     if (!isLocked()) {
         retryLock = 0;
         elemCount = 0;
@@ -233,7 +246,7 @@ function tryUnlock() {
         retryLock++;
         if (elemCount > CONFIG.MAX_ELEMENTS){
             console.error(MESSAGES.PREFIX, MESSAGES.UNLOCK_FAILED(elemCount));
-			elemCount++;
+            elemCount++;
             location.reload();
         }
         else if (retryLock < CONFIG.MAX_RETRIES) {
@@ -355,10 +368,6 @@ const playbackHandler = (event) => {
             event.stopPropagation(); 
             togglePlayback("key");
         }
-        else if (event.type === 'click' && event.button === 0) {
-			if (document.getElementsByClassName(IDENTIFIERS.OVERLAY).length > 0) return;
-			togglePlayback("click");
-        }
     }
 };
 
@@ -375,11 +384,13 @@ function init() {
 
     cleanupCallbacks.push(() => {
         window.removeEventListener('keydown', playbackHandler, true); 
+
     });
 
-	if (window.videoObserver) {
+    if (window.videoObserver) {
         window.videoObserver.disconnect();
     }
+
 	window.videoObserver = new MutationObserver(mutations => {
 		mutations.forEach(mutation => {
 			mutation.addedNodes.forEach(node => {
@@ -392,7 +403,6 @@ function init() {
 	cleanupCallbacks.push(() => window.videoObserver.disconnect());
 
     setupLockObserver();
-
     setTimeout(() => {
         tryUnlock();
         document.querySelectorAll('video').forEach(processVideo);
@@ -401,12 +411,18 @@ function init() {
     isInitialized = true;
 }
 
-if (CONFIG.ENABLED) {
-    if (document.readyState === 'complete') {
-        init();
+async function initializeExtension() {
+    await loadConfig();
+    
+    if (CONFIG.ENABLED) {
+        if (document.readyState === 'complete') {
+            init();
+        } else {
+            window.addEventListener('load', init);
+        }
     } else {
-        window.addEventListener('load', init);
+        setupLockObserver();
     }
-} else {
-    setupLockObserver();
 }
+
+initializeExtension();

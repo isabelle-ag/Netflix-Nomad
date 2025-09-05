@@ -139,17 +139,25 @@ window.__netflixUnblockExecuted = true;
 // Get config from local storage
 async function loadConfig() {
     try {
-        const result = await browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]);
+        // Set a timeout for storage access (3 seconds)
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Config load timeout')), 3000);
+        });
+        
+        // Race between storage access and timeout
+        const result = await Promise.race([
+            browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]),
+            timeoutPromise
+        ]);
+        
         if (debug) console.log(MESSAGES.PREFIX, "Loaded config from storage:", result);
         
-        // Use fallback values if storage retrieval fails
         CONFIG.CONTROL_KEY = result.CONTROL_KEY || 'Space';
         CONFIG.ENABLED = result.ENABLED !== undefined ? result.ENABLED : true;
         
         return true;
     } catch (error) {
         console.error(MESSAGES.PREFIX, "Error loading config, using defaults:", error);
-        // Use default values if storage is unavailable
         CONFIG.CONTROL_KEY = 'Space';
         CONFIG.ENABLED = true;
         return true;
@@ -284,7 +292,7 @@ function removeLock() {
     }
     return removedAny;
 }
-
+//Add manual unlock button
 function tryUnlock() {
     if(!CONFIG.ENABLED) {
         if (debug) console.log(MESSAGES.PREFIX, "Extension disabled, skipping unlock");
@@ -343,7 +351,7 @@ function setupLockObserver() {
     lockObserver.observe(document.body, { childList: true, subtree: true });
     if (debug) console.log(MESSAGES.PREFIX, "Lock observer set up");
 }
-
+//TODO: review and test thoroughly
 async function tryAutoplay() {
     if(!CONFIG.ENABLED) return;
     if (autoplayDone) return;
