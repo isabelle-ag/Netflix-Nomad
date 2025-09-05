@@ -142,27 +142,19 @@ async function loadConfig() {
         const result = await browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]);
         if (debug) console.log(MESSAGES.PREFIX, "Loaded config from storage:", result);
         
-// Use fallback values if storage retrieval fails
-CONFIG.CONTROL_KEY = result.CONTROL_KEY || 'Space';
-CONFIG.ENABLED = result.ENABLED !== undefined ? result.ENABLED : true;
+        // Use fallback values if storage retrieval fails
+        CONFIG.CONTROL_KEY = result.CONTROL_KEY || 'Space';
+        CONFIG.ENABLED = result.ENABLED !== undefined ? result.ENABLED : true;
         
-        // Initialize if enabled
-        if (CONFIG.ENABLED) {
-            init();
-        } else {
-            // Even if disabled, set up the lock observer to watch for changes
-            setupLockObserver();
-        }
+        return true;
     } catch (error) {
         console.error(MESSAGES.PREFIX, "Error loading config, using defaults:", error);
         // Use default values if storage is unavailable
         CONFIG.CONTROL_KEY = 'Space';
         CONFIG.ENABLED = true;
-        init();
+        return true;
     }
 }
-
-loadConfig();
 
 /* =============== Listeners =============== */
   
@@ -278,9 +270,12 @@ function removeLock() {
     const elements = document.getElementsByClassName(IDENTIFIERS.TARGET_CLASS);
     
     for (let i = 0; i < elements.length; i++) {
+        if (!document.body.contains(elements[i])) {
+            continue;
+        }
         const style = getComputedStyle(elements[i]);
         if ((style.position === 'fixed' || style.position === 'sticky') && 
-            !elements[i].contains(fullscreenElement)) {
+        (!fullscreenElement || !elements[i].contains(fullscreenElement))) {
             elements[i].remove();
             if (debug) console.log(MESSAGES.PREFIX, MESSAGES.ELEMENT_REMOVED);
             elemCount++;
@@ -295,6 +290,12 @@ function tryUnlock() {
         if (debug) console.log(MESSAGES.PREFIX, "Extension disabled, skipping unlock");
         return;
     }
+
+    if (!document.body || !document.body.contains) {
+        if (debug) console.log(MESSAGES.PREFIX, "Document not ready");
+        return;
+    }
+
     if (!isLocked()) {
         retryLock = 0;
         elemCount = 0;
@@ -455,11 +456,11 @@ function init() {
 
     window.addEventListener('keydown', playbackHandler, true);
     //TODO: fix click handler
-    window.addEventListener('click', playbackHandler);
+    //window.addEventListener('click', playbackHandler);
 
     cleanupCallbacks.push(() => {
         window.removeEventListener('keydown', playbackHandler, true); 
-        window.removeEventListener('click', playbackHandler);
+        //window.removeEventListener('click', playbackHandler);
     });
 
     if (window.videoObserver) {
@@ -489,13 +490,20 @@ function init() {
     isInitialized = true;
 }
 
-if (CONFIG.ENABLED) {
-    if (document.readyState === 'complete') {
-        init();
+async function initializeExtension() {
+    await loadConfig();
+    
+    // The rest of your initialization logic
+    if (CONFIG.ENABLED) {
+        if (document.readyState === 'complete') {
+            init();
+        } else {
+            window.addEventListener('load', init);
+        }
     } else {
-        window.addEventListener('load', init);
+        setupLockObserver();
     }
-} else {
-    // Set up lock observer even if disabled initially
-    setupLockObserver();
 }
+
+// Start the initialization process
+initializeExtension();
