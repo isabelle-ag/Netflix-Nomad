@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint and build
+        run: npm run ci
+
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: netflix-nomad
+          path: web-ext-artifacts/*.zip
+
+  release:
+    needs: validate-and-build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Strip DEV and TODO comments 
+        run: python3 scripts/strip-dev-comments.py .
+
+      - name: Verify no DEV or TODO comments remain 
+        run: |
+          if grep -rn "// DEV:\|// TODO:" ./src 2>/dev/null; then
+            echo "ERROR: DEV or TODO comments still present!"
+            exit 1
+          fi
+          echo "Verification passed — no DEV comments found."
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: web-ext-artifacts/*.zip
+

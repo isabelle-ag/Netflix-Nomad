@@ -1,0 +1,15 @@
+{
+    "name": "netflix-nomad",
+    "version": "2.1.3",
+    "description": "Firefox extension that improves the Netflix experience by reducing travel verification prompts and enhancing playback controls.",
+    "private": true,
+    "scripts": {
+        "lint": "web-ext lint",
+        "build": "web-ext build --overwrite-dest --ignore-files=package.json package-lock.json .github",
+        "dev": "web-ext run",
+        "ci": "npm run lint && npm run build"
+    },
+    "devDependencies": {
+        "web-ext": "^10.1.0"
+    }
+}

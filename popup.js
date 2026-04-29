@@ -17,14 +17,14 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
         return code.startsWith('Key') ? code.substring(3) : code;
       }
 
-      // Helper to update status text
+      //Helper to update status text
       function updateEnabledText(isEnabled) {
         const enabled = (isEnabled === true || isEnabled === "true");
         enabledStatus.textContent = enabled ? "Enabled" : "Disabled";
         enabledStatus.className = enabled ? "status-label status-enabled" : "status-label status-disabled";
       }
 
-      // Show save confirmation message
+      //Show save confirmation message
       function showSaveMessage() {
         saveMessage.classList.add('show');
         setTimeout(() => {
@@ -32,15 +32,15 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
         }, 2000);
       }
 
-      // Initialize UI
+      //Initialize UI
       controlKeyLabel.textContent = formatKeyDisplay(config.CONTROL_KEY);
   	  enabledCheckbox.checked = config.ENABLED;
  	  updateEnabledText(config.ENABLED);
 
-      // Set version number
+      //Set version number
       versionLabel.textContent = `v${browserAPI.runtime.getManifest().version}`;
 
-      // Capture key input
+      //Capture key input
       controlKeyInput.addEventListener('click', function() {
         this.classList.add('recording');
         this.placeholder = 'Press any key...';
@@ -50,14 +50,14 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
         e.preventDefault();
         e.stopPropagation();
         
-        // Don't allow modifier keys alone
+        //Don't allow modifier keys alone
         if (["Shift", "Control", "Alt", "Meta", "Tab"].includes(e.key)) {
           return;
         }
         
         let keyValue = e.code;
         
-        // Handle special cases for better readability
+        //Handle special cases for better readability
         if (e.key === " ") {
           keyValue = "Space";
         }
@@ -94,7 +94,7 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
         showSaveMessage();
       });
 
-      // Update enabled status
+      //Update enabled status
       enabledCheckbox.addEventListener("change", async () => {
         updateEnabledText(enabledCheckbox.checked);
         await browserAPI.storage.local.set({ ENABLED: enabledCheckbox.checked });
@@ -102,7 +102,7 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
         updateContentScript({ ENABLED: enabledCheckbox.checked });
       });
 
-      // Close popup on ESC key
+      //Close popup on ESC key
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") {
           if (controlKeyInput.classList.contains('recording')) {
@@ -115,10 +115,10 @@ const browserAPI = (typeof browser !== "undefined") ? browser : chrome;
       });
 
       function updateContentScript(config) {
-        // Get the active tab
+        //Get the active tab
         browserAPI.tabs.query({active: true, currentWindow: true}, function(tabs) {
           if (tabs[0] && tabs[0].url.includes("netflix.com")) {
-            // Send message to content script
+            //Send message to content script
             browserAPI.tabs.sendMessage(tabs[0].id, {
               action: "updateConfig",
               config: config
