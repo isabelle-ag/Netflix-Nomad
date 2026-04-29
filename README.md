@@ -4,12 +4,13 @@
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ff813f?logo=buy-me-a-coffee&logoColor=white)](https://www.buymeacoffee.com/isabelle.ag)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-> Bypass Netflix's “Not part of this household” restrictions and keep playback controls functional.
+> Firefox extension that improves the Netflix experience by reducing repeated travel verification prompts and enhancing playback controls.
 
 ---
 
 ## Table of Contents
 - [Overview](#overview)
+- [Why This Exists](#why-this-exists)
 - [Features](#features)
 - [Installation](#installation)
 - [How It Works](#how-it-works)
@@ -25,18 +26,27 @@
 > ⚠️ **Heads-up:** Netflix Nomad currently **hides Netflix’s native control bar**. To keep playback usable, the extension adds lightweight keyboard and mouse controls (see below). Restoring the native bar is on the roadmap.
 
 **What it does**
-- Dismisses/neutralizes “household lock” overlays so the player is reachable
-- Resumes playback automatically after unlock
-- Adds reliable play/pause via **Space**, configurable to any key
+- Reduces repeated travel-related verification prompts so playback remains accessible
+- Automatically resumes playback after interruptions
+- Adds reliable keyboard and mouse playback controls
+
+---
+
+## Why This Exists
+Frequent travel can trigger repeated verification prompts that interrupt playback and degrade the user experience. Netflix Nomad was built to explore how client-side extensions can improve usability in these edge cases without modifying core streaming behavior.
+
+This project focuses on:
+- Identifying UX friction points in real-world applications
+- Applying lightweight, maintainable DOM-based solutions
+- Preserving system integrity while improving accessibility
 
 ---
 
 ## Features
-- **Household Lock Bypass**: Automatically removes Netflix’s account-sharing lock screens
+- **Seamless Travel Viewing**: Reduces interruptions caused by repeated verification prompts when accessing Netflix away from your primary household
 - **Keyboard Controls**: Spacebar toggles play/pause (restores missing native behavior)
-- **Click Control**: Left-click video to toggle playback
 - **Fullscreen Support**: <kbd>F</kbd> key works when video is focused
-- **Lightweight**: No persistent background processes or tracking, minimal footprint
+- **Lightweight**: No background processes, minimal performance impact
 - **Instant Activation**: Runs immediately on page load, no setup required
 
 ---
@@ -61,18 +71,19 @@
 ---
 
 ## How It Works
-Netflix Nomad bypasses household verification through **non-invasive DOM manipulation**, exclusively targeting restriction overlays while preserving core functionality:
-- Removes blocking overlays without affecting Netflix's playback engine or video pipeline
-- Adds minimal play/pause/fullscreen listeners for seamless UX
-- Automatically retries when overlays load late
-- Zero network traffic interception or modification
-- Requires only standard page access permissions
+Netflix Nomad uses lightweight client-side DOM manipulation to improve playback accessibility during interrupted sessions:
 
-**Key Advantages**
-- **Low Detectability:** Avoids network/DRM hooks used by Netflix's detection systems
-- **Lightweight:** No background scripts; minimal performance impact
-- **Safe:** Never interacts with authentication or billing systems
-- **Resilient:** Functions independently of Netflix backend changes
+- Removes blocking UI overlays that prevent interaction with the video player
+- Preserves Netflix’s core playback engine and streaming pipeline
+- Adds minimal event listeners for playback controls
+- Automatically retries when overlays load asynchronously
+- Requires only standard page permissions (no network interception)
+
+**Design Principles**
+- **Non-invasive:** Does not modify streaming, DRM, or network requests
+- **Lightweight:** No background scripts; minimal runtime overhead
+- **Focused:** Targets only UI elements that block playback
+- **Resilient:** Designed to tolerate UI changes without breaking core functionality
 
 *Unlike network-level solutions, this DOM-focused approach preserves Netflix's native functionality while specifically targeting only the restriction overlays*
 
@@ -126,9 +137,9 @@ Since Netflix’s native control bar is removed:
 ---
 
 ## Legal Disclaimer
-This extension:  
-- Does not modify Netflix’s video streaming 
-- Does not circumvent account payment systems
-- Only removes viewing restrictions on paid accounts
+This extension:
+- Does not modify Netflix’s video streaming or DRM systems
+- Does not interact with authentication or billing systems
+- Focuses on improving playback accessibility and user experience
 
-*Use at your own discretion. Not affiliated with Netflix Inc.*  
+Use at your own discretion. Not affiliated with Netflix Inc.
