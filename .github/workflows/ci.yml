@@ -46,6 +46,17 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        
+      - name: Strip DEV and TODO comments 
+        run: python3 scripts/strip-dev-comments.py .
+
+      - name: Verify no DEV or TODO comments remain 
+        run: |
+          if grep -rn "// DEV:\|// TODO:" ./src 2>/dev/null; then
+            echo "ERROR: DEV or TODO comments still present!"
+            exit 1
+          fi
+          echo "Verification passed — no DEV comments found."
 
       - name: Build extension
         run: npm run build

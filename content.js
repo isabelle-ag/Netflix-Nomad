@@ -77,24 +77,24 @@ let lockObserver = null;
 
 /* =============== Body =============== */
 
-// Safeguard
+//Safeguard
 if (window.__netflixUnblockExecuted) throw new Error(ERR.REDUNDANT);
 window.__netflixUnblockExecuted = true;
 
-// Message listener
-/*browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+//Message listener
+/* DEV: browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (debug) console.log(MESSAGES.PREFIX, MESSAGES.MESSAGE_RECEIVED, request);
     
-    // Validate message structure - ensures we only process properly formatted messages
+    //Validate message structure - ensures we only process properly formatted messages
     if (!request || typeof request !== 'object') {
         sendResponse({status: "error", message: "Invalid message format"});
-        return false; // Close the message channel
+        return false; //Close the message channel
     }
     
-    // Handle different message types using a switch statement for clarity
+    //Handle different message types using a switch statement for clarity
     switch (request.action) {
         case "updateConfig":
-            // Validate config structure before processing
+            //Validate config structure before processing
             if (request.config && typeof request.config === 'object') {
                 handleConfigUpdate(request.config);
                 sendResponse({status: "success"});
@@ -104,7 +104,7 @@ window.__netflixUnblockExecuted = true;
             break;
             
         case "getStatus":
-            // Provide status information to the requesting component
+            //Provide status information to the requesting component
             sendResponse({
                 status: "success", 
                 data: {
@@ -117,7 +117,7 @@ window.__netflixUnblockExecuted = true;
             break;
             
         case "forceUnlock":
-            // Allow external triggering of the unlock process
+            //Allow external triggering of the unlock process
             if (CONFIG.ENABLED) {
                 tryUnlock();
                 sendResponse({status: "success", action: "unlockTriggered"});
@@ -127,24 +127,24 @@ window.__netflixUnblockExecuted = true;
             break;
             
         default:
-            // Handle unknown actions gracefully
+            //Handle unknown actions gracefully
             console.warn(MESSAGES.PREFIX, "Unknown message action:", request.action);
             sendResponse({status: "error", message: "Unknown action"});
-            return false; // Close the message channel for unknown actions
+            return false; //Close the message channel for unknown actions
     }
     
-    return true; // Keep message channel open for async response
+    return true; //Keep message channel open for async response
 });*/
 
-// Get config from local storage
+//Get config from local storage
 async function loadConfig() {
     try {
-        // Set a timeout for storage access (3 seconds)
+        //Set a timeout for storage access (3 seconds)
         const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error('Config load timeout')), 3000);
         });
         
-        // Race between storage access and timeout
+        //Race between storage access and timeout
         const result = await Promise.race([
             browserAPI.storage.local.get(["CONTROL_KEY", "ENABLED"]),
             timeoutPromise
@@ -166,7 +166,7 @@ async function loadConfig() {
 
 /* =============== Listeners =============== */
   
-// Update config from messages
+//Update config from messages
 function handleConfigUpdate(newConfig) {
     if (debug) console.log(MESSAGES.PREFIX, MESSAGES.STORAGE_UPDATE("CONTROL_KEY", newConfig.CONTROL_KEY));
     if (debug) console.log(MESSAGES.PREFIX, MESSAGES.STORAGE_UPDATE("ENABLED", newConfig.ENABLED));
@@ -178,18 +178,18 @@ function handleConfigUpdate(newConfig) {
         const wasEnabled = CONFIG.ENABLED;
         CONFIG.ENABLED = newConfig.ENABLED;
         
-        // If extension was just enabled, initialize or try to remove lock
+        //If extension was just enabled, initialize or try to remove lock
         if (CONFIG.ENABLED && !wasEnabled) {
             if (debug) console.log(MESSAGES.PREFIX, MESSAGES.EXTENSION_ENABLED);
             
             if (!isInitialized) {
-                // Initialize if not already done
+                //Initialize if not already done
                 init();
             } else {
-                // Already initialized, just try to remove lock
+                //Already initialized, just try to remove lock
                 tryUnlock();
                 
-                // Also try to process any videos
+                //Also try to process any videos
                 document.querySelectorAll('video').forEach(processVideo);
             }
         }
@@ -198,25 +198,25 @@ function handleConfigUpdate(newConfig) {
     initializeKeyListener();
 }
 
-// Message listener
+//Message listener
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (debug) console.log(MESSAGES.PREFIX, MESSAGES.MESSAGE_RECEIVED, request);
     
     if (request.action === "updateConfig") {
         handleConfigUpdate(request.config);
         
-        // Send response
+        //Send response
         sendResponse({status: "success"});
-        return true; // Keep message channel open for async response
+        return true; //Keep message channel open for async response
     }
 });
 
-// Storage change listener as a fallback
+//Storage change listener as a fallback
 browserAPI.storage.onChanged.addListener((changes, area) => {
     if (area === "local") {
         if (debug) console.log(MESSAGES.PREFIX, "Storage changed:", changes);
         
-        // Only proceed if relevant keys changed
+        //Only proceed if relevant keys changed
         if (!changes.CONTROL_KEY && !changes.ENABLED) return;
         
         const newConfig = {};
@@ -228,7 +228,7 @@ browserAPI.storage.onChanged.addListener((changes, area) => {
         }
         
         if (Object.keys(newConfig).length > 0) {
-            // Add a small delay to avoid rapid consecutive updates
+            //Add a small delay to avoid rapid consecutive updates
             setTimeout(() => handleConfigUpdate(newConfig), 100);
         }
     }
@@ -241,17 +241,17 @@ window.addEventListener('beforeunload', () => {
     if (lockObserver) {
         lockObserver.disconnect();
     }
-    // Also disconnect video observer if it exists
+    //Also disconnect video observer if it exists
     if (window.videoObserver) {
         window.videoObserver.disconnect();
     }
 });
 
 function initializeKeyListener() {
-    // Remove any existing event listener
+    //Remove any existing event listener
     document.removeEventListener("keydown", playbackHandler);
     
-    // Add new event listener with current config
+    //Add new event listener with current config
     if (CONFIG.ENABLED) {
         document.addEventListener("keydown", playbackHandler);
         if (debug) console.log(MESSAGES.PREFIX, "Key listener initialized with key:", CONFIG.CONTROL_KEY);
@@ -336,7 +336,7 @@ function tryUnlock() {
 }
 
 function setupLockObserver() {
-    // Observer for lock overlay changes (always active, but only acts when enabled)
+    //Observer for lock overlay changes (always active, but only acts when enabled)
     if (lockObserver) {
         lockObserver.disconnect();
     }
@@ -436,7 +436,7 @@ function togglePlayback(type) {
 }
 
 const playbackHandler = (event) => {
-    // For keyboard events
+    //For keyboard events
     if(!CONFIG.ENABLED) return;
     if(getDomain() === "WATCH"){
         if (event.type === 'keydown' && event.code === CONFIG.CONTROL_KEY) {
@@ -444,7 +444,7 @@ const playbackHandler = (event) => {
             event.stopPropagation(); 
             togglePlayback("key");
         }
-        // TODO: add configuration for click to pause
+        //TODO: add configuration for click to pause
         else if (event.type === 'click' && event.button === 0) {
 			//If overlay is present, netflix native click to pause will work, we don't want to toggle twice
 			if (document.getElementsByClassName(IDENTIFIERS.OVERLAY).length > 0) return;
@@ -464,17 +464,17 @@ function init() {
 
     window.addEventListener('keydown', playbackHandler, true);
     //TODO: fix click handler
-    //window.addEventListener('click', playbackHandler);
+    //DEV: window.addEventListener('click', playbackHandler);
 
     cleanupCallbacks.push(() => {
         window.removeEventListener('keydown', playbackHandler, true); 
-        //window.removeEventListener('click', playbackHandler);
+        //DEV: window.removeEventListener('click', playbackHandler);
     });
 
     if (window.videoObserver) {
         window.videoObserver.disconnect();
     }
-// Observer for new video elements
+//Observer for new video elements
 	window.videoObserver = new MutationObserver(mutations => {
 		mutations.forEach(mutation => {
 			mutation.addedNodes.forEach(node => {
@@ -486,10 +486,10 @@ function init() {
 	window.videoObserver.observe(document.body, { childList: true, subtree: true });
 	cleanupCallbacks.push(() => window.videoObserver.disconnect());
 
-    // Set up lock observer
+    //Set up lock observer
     setupLockObserver();
 
-    // Initial attempt after small delay
+    //Initial attempt after small delay
     setTimeout(() => {
         tryUnlock();
         document.querySelectorAll('video').forEach(processVideo);
@@ -501,7 +501,6 @@ function init() {
 async function initializeExtension() {
     await loadConfig();
     
-    // The rest of your initialization logic
     if (CONFIG.ENABLED) {
         if (document.readyState === 'complete') {
             init();
@@ -513,5 +512,5 @@ async function initializeExtension() {
     }
 }
 
-// Start the initialization process
+//Start the initialization process
 initializeExtension();
